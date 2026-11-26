@@ -346,7 +346,7 @@ export function QuizSession({
             dark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
           }`}
         >
-          <p className="text-[15px] leading-relaxed whitespace-pre-line">{q.stem}</p>
+          <p className={`${progress.settings.fontSize === 'large' ? 'text-[17px]' : 'text-[15px]'} leading-relaxed whitespace-pre-line`}>{q.stem}</p>
 
           {imgUrl && (
             <div className="mt-3 relative">
@@ -462,7 +462,7 @@ export function QuizSession({
                     >
                       {letter}
                     </span>
-                    <span className="flex-1 text-sm leading-snug">{q.options[letter]}</span>
+                    <span className={`flex-1 leading-snug ${progress.settings.fontSize === 'large' ? 'text-[15px]' : 'text-sm'}`}>{q.options[letter]}</span>
                     {isRevealed && isAnswer && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400 mt-0.5" />}
                     {isRevealed && isSelected && q.answerVerified && !isAnswer && (
                       <XCircle className="h-5 w-5 shrink-0 text-rose-400 mt-0.5" />

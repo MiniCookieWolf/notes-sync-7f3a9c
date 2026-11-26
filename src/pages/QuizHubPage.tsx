@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock, Play, Shuffle, Sparkles, Stethoscope, Trophy } from 'lucide-react';
 import { computeSpecialtyStats } from '../lib/srs';
 import type { ManifestData, UserProgress } from '../lib/types';
@@ -6,6 +6,7 @@ import type { ManifestData, UserProgress } from '../lib/types';
 interface QuizHubPageProps {
   manifest: ManifestData;
   progress: UserProgress;
+  onToggleActiveRecall: (nextVal: boolean) => void;
   onStartRandom: (opts: {
     count: number;
     filter: 'smart' | 'all' | 'unseen' | 'wrong' | 'bookmarked';
@@ -35,6 +36,7 @@ const SOURCE_FILTERS = [
 export function QuizHubPage({
   manifest,
   progress,
+  onToggleActiveRecall,
   onStartRandom,
   onStartSpecialty,
   onStartCbt,
@@ -45,6 +47,10 @@ export function QuizHubPage({
   const [specCount, setSpecCount] = useState(15);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [activeRecall, setActiveRecall] = useState(progress.settings.activeRecallDefault);
+
+  useEffect(() => {
+    setActiveRecall(progress.settings.activeRecallDefault);
+  }, [progress.settings.activeRecallDefault]);
 
   const dark = progress.settings.darkMode;
   const specStats = computeSpecialtyStats(manifest.specialties, progress);
@@ -93,7 +99,11 @@ export function QuizHubPage({
           </div>
         </div>
         <button
-          onClick={() => setActiveRecall((v) => !v)}
+          onClick={() => {
+            const next = !activeRecall;
+            setActiveRecall(next);
+            onToggleActiveRecall(next);
+          }}
           className={`h-6 w-11 rounded-full transition-colors p-0.5 ${
             activeRecall ? 'bg-emerald-500' : 'bg-slate-700'
           }`}

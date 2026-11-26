@@ -1,32 +1,25 @@
 import { useState } from 'react';
 import {
   CheckCircle2,
-  Download,
   HardDriveDownload,
-  Moon,
-  Sun,
-  Upload,
-  Vibrate,
+  Settings,
 } from 'lucide-react';
 import { prefetchAllOfflineData } from '../lib/dataLoader';
 import { computeOverallReadiness } from '../lib/motivation';
 import { computeSpecialtyStats } from '../lib/srs';
-import { exportProgressJSON, importProgressJSON } from '../lib/storage';
 import type { ManifestData, UserProgress } from '../lib/types';
 
 interface StatsPageProps {
   manifest: ManifestData;
   progress: UserProgress;
-  onUpdateSettings: (patch: Partial<UserProgress['settings']>) => void;
-  onImportProgress: (next: UserProgress) => void;
+  onOpenSettings: () => void;
   onStartSpecialtyWeak: (specialtyId: string) => void;
 }
 
 export function StatsPage({
   manifest,
   progress,
-  onUpdateSettings,
-  onImportProgress,
+  onOpenSettings,
   onStartSpecialtyWeak,
 }: StatsPageProps) {
   const dark = progress.settings.darkMode;
@@ -50,33 +43,6 @@ export function StatsPage({
       setOfflineState('idle');
       setOfflineMsg('Sebagian file gagal diunduh, coba pastikan server/internet aktif.');
     }
-  };
-
-  const handleExport = () => {
-    const json = exportProgressJSON(progress);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backup-ukmppd-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imported = importProgressJSON(String(reader.result || ''));
-      if (imported) {
-        onImportProgress(imported);
-        alert('Progress belajar berhasil dipulihkan!');
-      } else {
-        alert('File backup tidak valid.');
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -180,61 +146,26 @@ export function StatsPage({
         </div>
       </section>
 
-      {/* App Settings & Backup */}
-      <section
-        className={`rounded-2xl border p-4 space-y-3 ${
-          dark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
+      {/* Shortcut to Dedicated Settings Page */}
+      <button
+        onClick={onOpenSettings}
+        className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
+          dark ? 'border-slate-800 bg-slate-900 hover:border-emerald-500/40' : 'border-slate-200 bg-white'
         }`}
       >
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-          Pengaturan & Backup Progress
-        </h3>
-
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold">Nama Panggilan</span>
-          <input
-            type="text"
-            value={progress.settings.userName}
-            onChange={(e) => onUpdateSettings({ userName: e.target.value })}
-            className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-right"
-          />
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+            <Settings className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-extrabold">Buka Halaman Pengaturan Lengkap</p>
+            <p className="text-[11px] text-slate-400">
+              Matikan sembunyikan opsi A–E, ukuran teks, ganti PIN, & backup
+            </p>
+          </div>
         </div>
-
-        <button
-          onClick={() => onUpdateSettings({ darkMode: !dark })}
-          className="flex w-full items-center justify-between py-1.5 text-xs font-semibold"
-        >
-          <span className="flex items-center gap-2">
-            {dark ? <Moon className="h-4 w-4 text-cyan-400" /> : <Sun className="h-4 w-4 text-amber-400" />}
-            Tema Gelap (Nyaman Belajar Malam)
-          </span>
-          <span className="text-emerald-400 font-bold">{dark ? 'ON' : 'OFF'}</span>
-        </button>
-
-        <button
-          onClick={() => onUpdateSettings({ haptics: !progress.settings.haptics })}
-          className="flex w-full items-center justify-between py-1.5 text-xs font-semibold"
-        >
-          <span className="flex items-center gap-2">
-            <Vibrate className="h-4 w-4 text-violet-400" />
-            Getar Haptic Feedback Android
-          </span>
-          <span className="text-emerald-400 font-bold">{progress.settings.haptics ? 'ON' : 'OFF'}</span>
-        </button>
-
-        <div className="grid grid-cols-2 gap-2 pt-2">
-          <button
-            onClick={handleExport}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold"
-          >
-            <Download className="h-3.5 w-3.5" /> Export Backup
-          </button>
-          <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold">
-            <Upload className="h-3.5 w-3.5" /> Import Backup
-            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
-          </label>
-        </div>
-      </section>
+        <span className="text-xs font-bold text-emerald-400">Buka →</span>
+      </button>
     </div>
   );
 }

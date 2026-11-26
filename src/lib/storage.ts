@@ -57,6 +57,7 @@ export function defaultProgress(): UserProgress {
       haptics: true,
       activeRecallDefault: true,
       showKeywordsHint: false,
+      fontSize: 'normal',
       userName: 'Dokter Pejuang',
     },
   };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Flame, Lock, Moon, Sun, WifiOff } from 'lucide-react';
+import { Flame, Lock, Moon, Settings, Sun, WifiOff } from 'lucide-react';
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
@@ -10,7 +10,7 @@ import {
   updateSRSRecord,
   type SRSRating,
 } from './lib/srs';
-import { loadProgress, saveProgress, todayISO } from './lib/storage';
+import { loadProgress, saveProgress, todayISO, defaultProgress } from './lib/storage';
 import type {
   Flashcard,
   ManifestData,
@@ -22,6 +22,7 @@ import { HomePage } from './pages/HomePage';
 import { LibraryPage } from './pages/LibraryPage';
 import { PlannerPage } from './pages/PlannerPage';
 import { QuizHubPage } from './pages/QuizHubPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { StatsPage } from './pages/StatsPage';
 
 const ACCESS_KEY = 'ws_access_ok_v1';
@@ -34,6 +35,7 @@ export default function App() {
   const [loadError, setLoadError] = useState<string>('');
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
   const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [showSettings, setShowSettings] = useState(false);
   const [session, setSession] = useState<QuizSessionConfig | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
@@ -307,7 +309,8 @@ export default function App() {
 
   const handleUnlockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.trim() === '2611') {
+    const expectedPin = localStorage.getItem('ws_pin_v1') || '2611';
+    if (pinInput.trim() === expectedPin) {
       localStorage.setItem(ACCESS_KEY, '1');
       setPinError(false);
       setUnlocked(true);
@@ -441,8 +444,22 @@ export default function App() {
                 }))
               }
               className={`rounded-xl p-1.5 ${dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}
+              title="Ganti Tema"
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className={`rounded-xl p-1.5 ${
+                showSettings
+                  ? 'bg-emerald-600 text-white'
+                  : dark
+                  ? 'bg-slate-800 text-slate-300'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+              title="Pengaturan"
+            >
+              <Settings className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -459,94 +476,124 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'home' && (
-          <HomePage
-            manifest={manifest}
-            progress={progress}
-            onStartQuick5={() =>
-              launchRandomQuiz({
-                count: 5,
-                filter: 'smart',
-                activeRecall: progress.settings.activeRecallDefault,
-                title: '5 Menit Aja! (Kilat)',
-              })
-            }
-            onStartRandom={(count) =>
-              launchRandomQuiz({
-                count,
-                filter: 'smart',
-                activeRecall: progress.settings.activeRecallDefault,
-              })
-            }
-            onStartDueSrs={launchDueSrsQuiz}
-            onStartWeakest={(specId) =>
-              launchSpecialtyQuiz({
-                specialtyId: specId,
-                count: 15,
-                categoryFilter: 'all',
-                activeRecall: progress.settings.activeRecallDefault,
-              })
-            }
-            onStartTodayMission={launchMission}
-            onOpenTab={(t) => setActiveTab(t)}
-          />
-        )}
-
-        {activeTab === 'quiz' && (
-          <QuizHubPage
-            manifest={manifest}
-            progress={progress}
-            onStartRandom={launchRandomQuiz}
-            onStartSpecialty={launchSpecialtyQuiz}
-            onStartCbt={launchCbt}
-          />
-        )}
-
-        {activeTab === 'planner' && (
-          <PlannerPage
-            manifest={manifest}
-            progress={progress}
-            onUpdatePlan={(cfg: StudyPlanConfig) =>
-              setProgress((p) => ({ ...p, planConfig: cfg }))
-            }
-            onRebalance={() =>
-              setProgress((p) => ({ ...p, scheduleOffsetDays: (p.scheduleOffsetDays || 0) + 1 }))
-            }
-            onStartDayMission={launchMission}
-          />
-        )}
-
-        {activeTab === 'library' && (
-          <LibraryPage
-            manifest={manifest}
-            progress={progress}
-            onRateFlashcard={handleRateFlashcard}
-          />
-        )}
-
-        {activeTab === 'stats' && (
-          <StatsPage
+        {showSettings ? (
+          <SettingsPage
             manifest={manifest}
             progress={progress}
             onUpdateSettings={(patch) =>
               setProgress((p) => ({ ...p, settings: { ...p.settings, ...patch } }))
             }
             onImportProgress={(next) => setProgress(next)}
-            onStartSpecialtyWeak={(specId) =>
-              launchSpecialtyQuiz({
-                specialtyId: specId,
-                count: 15,
-                categoryFilter: 'all',
-                activeRecall: progress.settings.activeRecallDefault,
-              })
-            }
+            onResetProgress={() => {
+              const fresh = defaultProgress();
+              setProgress(fresh);
+            }}
+            onLockNow={() => {
+              localStorage.removeItem(ACCESS_KEY);
+              setPinInput('');
+              setShowSettings(false);
+              setUnlocked(false);
+            }}
+            onBack={() => setShowSettings(false)}
           />
+        ) : (
+          <>
+            {activeTab === 'home' && (
+              <HomePage
+                manifest={manifest}
+                progress={progress}
+                onStartQuick5={() =>
+                  launchRandomQuiz({
+                    count: 5,
+                    filter: 'smart',
+                    activeRecall: progress.settings.activeRecallDefault,
+                    title: '5 Menit Aja! (Kilat)',
+                  })
+                }
+                onStartRandom={(count) =>
+                  launchRandomQuiz({
+                    count,
+                    filter: 'smart',
+                    activeRecall: progress.settings.activeRecallDefault,
+                  })
+                }
+                onStartDueSrs={launchDueSrsQuiz}
+                onStartWeakest={(specId) =>
+                  launchSpecialtyQuiz({
+                    specialtyId: specId,
+                    count: 15,
+                    categoryFilter: 'all',
+                    activeRecall: progress.settings.activeRecallDefault,
+                  })
+                }
+                onStartTodayMission={launchMission}
+                onOpenTab={(t) => setActiveTab(t)}
+              />
+            )}
+
+            {activeTab === 'quiz' && (
+              <QuizHubPage
+                manifest={manifest}
+                progress={progress}
+                onToggleActiveRecall={(nextVal) =>
+                  setProgress((p) => ({
+                    ...p,
+                    settings: { ...p.settings, activeRecallDefault: nextVal },
+                  }))
+                }
+                onStartRandom={launchRandomQuiz}
+                onStartSpecialty={launchSpecialtyQuiz}
+                onStartCbt={launchCbt}
+              />
+            )}
+
+            {activeTab === 'planner' && (
+              <PlannerPage
+                manifest={manifest}
+                progress={progress}
+                onUpdatePlan={(cfg: StudyPlanConfig) =>
+                  setProgress((p) => ({ ...p, planConfig: cfg }))
+                }
+                onRebalance={() =>
+                  setProgress((p) => ({ ...p, scheduleOffsetDays: (p.scheduleOffsetDays || 0) + 1 }))
+                }
+                onStartDayMission={launchMission}
+              />
+            )}
+
+            {activeTab === 'library' && (
+              <LibraryPage
+                manifest={manifest}
+                progress={progress}
+                onRateFlashcard={handleRateFlashcard}
+              />
+            )}
+
+            {activeTab === 'stats' && (
+              <StatsPage
+                manifest={manifest}
+                progress={progress}
+                onOpenSettings={() => setShowSettings(true)}
+                onStartSpecialtyWeak={(specId) =>
+                  launchSpecialtyQuiz({
+                    specialtyId: specId,
+                    count: 15,
+                    categoryFilter: 'all',
+                    activeRecall: progress.settings.activeRecallDefault,
+                  })
+                }
+              />
+            )}
+          </>
         )}
       </main>
 
       <BottomNav
         activeTab={activeTab}
-        onSelect={setActiveTab}
+        onSelect={(tab) => {
+          setShowSettings(false);
+          setActiveTab(tab);
+        }}
         dueCount={dueCount}
         darkMode={dark}
       />

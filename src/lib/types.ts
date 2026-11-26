@@ -151,6 +151,7 @@ export interface AppSettings {
   haptics: boolean;
   activeRecallDefault: boolean;
   showKeywordsHint: boolean;
+  fontSize: 'normal' | 'large';
   userName: string;
 }
 
