@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-android-apk:
     runs-on: ubuntu-latest
@@ -41,10 +44,21 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../UKMPPD-Active-Mastery.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: UKMPPD-Active-Mastery-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: UKMPPD-Active-Mastery.apk
           retention-days: 30
+
+      - name: Publish Direct Download Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest -y || true
+          git push origin :refs/tags/latest || true
+          gh release create latest UKMPPD-Active-Mastery.apk \
+            --title "UKMPPD Active Mastery (Auto-Build)" \
+            --notes "Build otomatis terbaru. Tap UKMPPD-Active-Mastery.apk untuk langsung download & install di HP Android."
