@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Flame, Moon, Sun, WifiOff } from 'lucide-react';
+import { Flame, Lock, Moon, Sun, WifiOff } from 'lucide-react';
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
@@ -24,7 +24,12 @@ import { PlannerPage } from './pages/PlannerPage';
 import { QuizHubPage } from './pages/QuizHubPage';
 import { StatsPage } from './pages/StatsPage';
 
+const ACCESS_KEY = 'ws_access_ok_v1';
+
 export default function App() {
+  const [unlocked, setUnlocked] = useState<boolean>(() => localStorage.getItem(ACCESS_KEY) === '1');
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
   const [manifest, setManifest] = useState<ManifestData | null>(null);
   const [loadError, setLoadError] = useState<string>('');
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
@@ -34,10 +39,6 @@ export default function App() {
   const [loadingQuiz, setLoadingQuiz] = useState(false);
 
   useEffect(() => {
-    loadManifest()
-      .then(setManifest)
-      .catch((err) => setLoadError(String(err)));
-
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('online', onOnline);
@@ -47,6 +48,13 @@ export default function App() {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (!unlocked) return;
+    loadManifest()
+      .then(setManifest)
+      .catch((err) => setLoadError(String(err)));
+  }, [unlocked]);
 
   useEffect(() => {
     saveProgress(progress);
@@ -296,6 +304,56 @@ export default function App() {
       setLoadingQuiz(false);
     }
   };
+
+  const handleUnlockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput.trim() === '2611') {
+      localStorage.setItem(ACCESS_KEY, '1');
+      setPinError(false);
+      setUnlocked(true);
+    } else {
+      setPinError(true);
+    }
+  };
+
+  if (!unlocked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
+        <form
+          onSubmit={handleUnlockSubmit}
+          className="w-full max-w-xs space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 text-center shadow-2xl"
+        >
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800 text-slate-300">
+            <Lock className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold tracking-tight">Workspace Sync</h1>
+            <p className="mt-1 text-xs text-slate-400">Masukkan kode akses untuk membuka sesi lokal</p>
+          </div>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={8}
+            value={pinInput}
+            onChange={(e) => {
+              setPinInput(e.target.value);
+              setPinError(false);
+            }}
+            placeholder="••••"
+            autoFocus
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 text-center text-lg font-bold tracking-[0.4em] text-white focus:border-emerald-500 focus:outline-none"
+          />
+          {pinError && <p className="text-xs font-semibold text-rose-400">Kode tidak sesuai</p>}
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-emerald-600 py-3 text-xs font-extrabold text-white active:scale-[0.98]"
+          >
+            Buka Sesi
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (

@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'UKMPPD Active Mastery',
-        short_name: 'UKMPPD Pro',
-        description: 'Aplikasi Active Learning UKMPPD/UKNPDPD dengan Bank Soal, Pembahasan & Timestamp Video, Spaced Repetition, dan Jadwal Target Adaptif.',
+        name: 'Study Pro',
+        short_name: 'Study Pro',
+        description: 'Personal offline notes and flashcard sync.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
