@@ -1,6 +1,9 @@
 name: Build Android APK (Capacitor)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -28,12 +31,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read app version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+
       - name: Build web assets
         run: npm run build
 
-      - name: Generate Android project and sync assets
+      - name: Restore consistent Android signing keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$HOME/.android/debug.keystore"
+          fi
+
+      - name: Generate Android project and patch version
         run: |
           npx cap add android
+          python3 - <<'EOF'
+          import os, re
+          gradle_path = "android/app/build.gradle"
+          with open(gradle_path, "r", encoding="utf-8") as f:
+              txt = f.read()
+          run_num = os.environ.get("GITHUB_RUN_NUMBER", "1")
+          ver_name = os.environ.get("APP_VERSION", "1.1.0")
+          txt = re.sub(r"versionCode\s+\d+", f"versionCode {run_num}", txt)
+          txt = re.sub(r'versionName\s+"[^"]+"', f'versionName "{ver_name}"', txt)
+          with open(gradle_path, "w", encoding="utf-8") as f:
+              f.write(txt)
+          EOF
           npx cap sync android
 
       - name: Build Debug APK
@@ -41,21 +70,22 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk ../UKMPPD-Active-Mastery.apk
+          cp app/build/outputs/apk/debug/app-debug.apk "../StudyPro-v${APP_VERSION}.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UKMPPD-Active-Mastery-APK
-          path: UKMPPD-Active-Mastery.apk
+          name: StudyPro-APK-v${{ env.APP_VERSION }}
+          path: StudyPro-v${{ env.APP_VERSION }}.apk
           retention-days: 30
 
-      - name: Publish Direct Download Release
+      - name: Publish Versioned GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete latest -y || true
-          git push origin :refs/tags/latest || true
-          gh release create latest UKMPPD-Active-Mastery.apk \
-            --title "UKMPPD Active Mastery (Auto-Build)" \
-            --notes "Build otomatis terbaru. Tap UKMPPD-Active-Mastery.apk untuk langsung download & install di HP Android."
+          TAG="v${APP_VERSION}"
+          gh release delete "$TAG" -y || true
+          git push origin ":refs/tags/${TAG}" || true
+          gh release create "$TAG" "StudyPro-v${APP_VERSION}.apk" \
+            --title "Study Pro ${TAG}" \
+            --notes "Pembaruan aplikasi Study Pro ${TAG}. Unduh dan pasang StudyPro-${TAG}.apk untuk update langsung tanpa menghapus progres belajar."

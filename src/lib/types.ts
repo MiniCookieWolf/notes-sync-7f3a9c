@@ -152,6 +152,7 @@ export interface AppSettings {
   activeRecallDefault: boolean;
   showKeywordsHint: boolean;
   fontSize: 'normal' | 'large';
+  autoCheckUpdates: boolean;
   userName: string;
 }
 

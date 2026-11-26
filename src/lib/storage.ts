@@ -58,6 +58,7 @@ export function defaultProgress(): UserProgress {
       activeRecallDefault: true,
       showKeywordsHint: false,
       fontSize: 'normal',
+      autoCheckUpdates: true,
       userName: 'Dokter Pejuang',
     },
   };

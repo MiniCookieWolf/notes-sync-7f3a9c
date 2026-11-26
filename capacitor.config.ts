@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.ukmppd.activemastery',
-  appName: 'UKMPPD Active Mastery',
+  appId: 'com.studypro.notesync',
+  appName: 'Study Pro',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

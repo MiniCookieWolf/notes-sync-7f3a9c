@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Flame, Lock, Moon, Settings, Sun, WifiOff } from 'lucide-react';
+import { ArrowUpCircle, Flame, Lock, Moon, Settings, Sun, WifiOff, X } from 'lucide-react';
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
@@ -11,6 +11,7 @@ import {
   type SRSRating,
 } from './lib/srs';
 import { loadProgress, saveProgress, todayISO, defaultProgress } from './lib/storage';
+import { checkForAppUpdate, shouldAutoCheck, type UpdateCheckResult } from './lib/updater';
 import type {
   Flashcard,
   ManifestData,
@@ -39,6 +40,7 @@ export default function App() {
   const [session, setSession] = useState<QuizSessionConfig | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateCheckResult | null>(null);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -57,6 +59,15 @@ export default function App() {
       .then(setManifest)
       .catch((err) => setLoadError(String(err)));
   }, [unlocked]);
+
+  useEffect(() => {
+    if (!unlocked || !isOnline || !progress.settings.autoCheckUpdates || !shouldAutoCheck()) return;
+    checkForAppUpdate().then((res) => {
+      if (res.status === 'update_available') {
+        setAvailableUpdate(res);
+      }
+    });
+  }, [unlocked, isOnline, progress.settings.autoCheckUpdates]);
 
   useEffect(() => {
     saveProgress(progress);
@@ -467,6 +478,34 @@ export default function App() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-lg px-4 pt-4">
+        {availableUpdate && availableUpdate.status === 'update_available' && (
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <ArrowUpCircle className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span className="font-bold text-emerald-200 truncate">
+                Update APK v{availableUpdate.latestVersion} tersedia!
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={availableUpdate.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg bg-emerald-600 px-2.5 py-1 font-extrabold text-white"
+              >
+                Update
+              </a>
+              <button
+                onClick={() => setAvailableUpdate(null)}
+                className="rounded-lg p-1 text-slate-400 hover:text-white"
+                aria-label="Tutup banner update"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {loadingQuiz && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="rounded-2xl bg-slate-900 px-6 py-4 text-center border border-slate-800">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ArrowLeft,
+  ArrowUpCircle,
   CheckCircle2,
   Download,
   Eye,
@@ -9,6 +10,7 @@ import {
   Lightbulb,
   Lock,
   Moon,
+  RefreshCw,
   RotateCcw,
   Sun,
   Type,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 import { prefetchAllOfflineData } from '../lib/dataLoader';
 import { exportProgressJSON, importProgressJSON } from '../lib/storage';
+import { APP_VERSION, checkForAppUpdate, type UpdateCheckResult } from '../lib/updater';
 import type { ManifestData, UserProgress } from '../lib/types';
 
 interface SettingsPageProps {
@@ -90,6 +93,18 @@ export function SettingsPage({
   const [pinSavedMsg, setPinSavedMsg] = useState('');
   const [offlineState, setOfflineState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [offlineMsg, setOfflineMsg] = useState('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const res = await checkForAppUpdate();
+      setUpdateResult(res);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const cardCls = `rounded-2xl border p-4 space-y-2 ${
     dark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
@@ -171,6 +186,79 @@ export function SettingsPage({
           Pengaturan
         </h2>
       </div>
+
+      {/* Section 0: Pembaruan Aplikasi (Auto-Update APK) */}
+      <section className={cardCls}>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+            Pembaruan Aplikasi (APK)
+          </p>
+          <span className="rounded-lg bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-400">
+            v{APP_VERSION}
+          </span>
+        </div>
+
+        <SwitchRow
+          icon={ArrowUpCircle}
+          iconColor="text-emerald-400"
+          title="Cek Update Otomatis Saat Dibuka"
+          desc="Periksa rilis APK terbaru secara berkala saat HP terhubung ke internet."
+          checked={progress.settings.autoCheckUpdates}
+          onToggle={() =>
+            onUpdateSettings({ autoCheckUpdates: !progress.settings.autoCheckUpdates })
+          }
+          dark={dark}
+        />
+
+        <button
+          type="button"
+          disabled={checkingUpdate}
+          onClick={handleCheckUpdate}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-2.5 text-xs font-extrabold text-white disabled:opacity-60 active:scale-[0.99]"
+        >
+          <RefreshCw className={`h-4 w-4 ${checkingUpdate ? 'animate-spin' : ''}`} />
+          {checkingUpdate ? 'Memeriksa Versi Terbaru...' : 'Cek Pembaruan Sekarang'}
+        </button>
+
+        {updateResult && updateResult.status === 'update_available' && (
+          <div className="mt-2 space-y-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3">
+            <p className="text-xs font-extrabold text-emerald-300">
+              🎉 Versi Baru Tersedia: v{updateResult.latestVersion}
+            </p>
+            {updateResult.notes && (
+              <p className="text-[11px] text-slate-300 whitespace-pre-line">{updateResult.notes}</p>
+            )}
+            <a
+              href={updateResult.downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow"
+            >
+              <Download className="h-4 w-4" /> Download & Install Update (.apk)
+            </a>
+          </div>
+        )}
+
+        {updateResult && updateResult.status === 'up_to_date' && (
+          <div className="mt-1 flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+            <span>✅ Aplikasi sudah versi terbaru (v{updateResult.currentVersion})</span>
+            {updateResult.downloadUrl && (
+              <a
+                href={updateResult.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-[11px]"
+              >
+                Unduh Ulang
+              </a>
+            )}
+          </div>
+        )}
+
+        {updateResult && updateResult.status === 'error' && (
+          <p className="mt-1 text-[11px] text-amber-400">{updateResult.errorMessage}</p>
+        )}
+      </section>
 
       {/* Section 1: Mode Latihan & Soal */}
       <section className={cardCls}>
