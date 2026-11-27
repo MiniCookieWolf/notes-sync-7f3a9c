@@ -80,6 +80,55 @@ function renderFormattedLine(raw: string, idx: number) {
   );
 }
 
+const TRAILING_JOIN_WORDS = new Set([
+  'dan', 'atau', 'yang', 'dengan', 'pada', 'di', 'ke', 'dari', 'untuk',
+  'seperti', 'yaitu', 'adalah', 'karena', 'sehingga', 'namun', 'tetapi',
+  'oleh', 'dalam', 'serta', 'dapat', 'tidak', 'saat', 'jika', 'bila',
+  'secara', 'antara', 'terhadap', 'akibat', 'berupa', 'melalui', 'hingga',
+  'sampai', 'sebagai', 'sejak', 'maupun', 'bahkan', 'lebih', 'kurang',
+  'paling', 'sangat', 'bahwa', 'agar', 'supaya',
+]);
+
+function startsNewItem(line: string): boolean {
+  if (/^(?:[•∙▪‣→]|->|-\s+|\d+[.)]\s+|[A-E][.)]\s+|[A-E](?:\s+Salah)?\s*:)/i.test(line)) {
+    return true;
+  }
+  const colonIdx = line.indexOf(':');
+  if (colonIdx > 2 && colonIdx <= 28 && !line.slice(0, colonIdx).includes('. ')) {
+    return true;
+  }
+  return false;
+}
+
+function mergeWrappedLines(rawLines: string[]): string[] {
+  const out: string[] = [];
+  for (const raw of rawLines) {
+    const cur = raw.trim();
+    if (!cur) continue;
+    if (out.length === 0) {
+      out.push(cur);
+      continue;
+    }
+    const prev = out[out.length - 1];
+    const prevEndsSentence = /[.!?:;]$/.test(prev);
+    const prevEndsConnector = /[,+/(\-–—]$/.test(prev);
+    const prevWords = prev.replace(/[^\w\s]/g, ' ').trim().split(/\s+/);
+    const lastWord = (prevWords[prevWords.length - 1] || '').toLowerCase();
+    const curStartsLower = /^[a-z0-9(%]/.test(cur);
+
+    if (
+      !startsNewItem(cur) &&
+      !prevEndsSentence &&
+      (curStartsLower || prevEndsConnector || TRAILING_JOIN_WORDS.has(lastWord))
+    ) {
+      out[out.length - 1] = `${prev} ${cur}`;
+    } else {
+      out.push(cur);
+    }
+  }
+  return out;
+}
+
 export function PembahasanCard({
   q,
   chosen,
@@ -98,13 +147,22 @@ export function PembahasanCard({
 
   const base = import.meta.env.BASE_URL;
   const isCorrect = q.answerVerified ? chosen === q.answer : true;
-  const rationaleLines = (q.rationale || '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const rationaleLines = mergeWrappedLines(
+    (q.rationale || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+  );
 
   const hasOptionRationales = q.optionRationales && Object.keys(q.optionRationales).length > 0;
-  const slideSections = q.materiSections && q.materiSections.length > 0 ? q.materiSections : [];
+  const slideSections = (q.materiSections || []).map((sec) => ({
+    ...sec,
+    bullets: mergeWrappedLines(sec.bullets || []),
+  }));
+  const topicSections = (topic?.sections || []).map((sec) => ({
+    ...sec,
+    bullets: mergeWrappedLines(sec.bullets || []),
+  }));
 
   // Combine mnemonics from question + linked topic without duplicates
   const allMnemonics = Array.from(
@@ -276,7 +334,7 @@ export function PembahasanCard({
 
               {/* Linked Disease/Classification Knowledge Card from Nov/Agt Materi */}
               {topic &&
-                topic.sections.map((sec, tIdx) => (
+                topicSections.map((sec, tIdx) => (
                   <div
                     key={`tsec-${tIdx}`}
                     className={`rounded-xl p-3 space-y-1.5 ${

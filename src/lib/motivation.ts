@@ -94,21 +94,44 @@ export function getMotivationalPush(
   };
 }
 
+export const MIN_QUESTIONS_PER_SPECIALTY = 10;
+
 export function computeOverallReadiness(
   progress: UserProgress,
   specialties: SpecialtyMeta[]
-): { weightedAccuracy: number; attemptedTotal: number; coveragePct: number } {
+): {
+  weightedAccuracy: number;
+  attemptedTotal: number;
+  coveragePct: number;
+  readySpecialtiesCount: number;
+  totalSpecialties: number;
+  minPerSpecialty: number;
+  isReadinessReady: boolean;
+} {
   const srsValues = Object.values(progress.srs);
+  const totalSpecialties = specialties.length;
   if (srsValues.length === 0) {
-    return { weightedAccuracy: 0, attemptedTotal: 0, coveragePct: 0 };
+    return {
+      weightedAccuracy: 0,
+      attemptedTotal: 0,
+      coveragePct: 0,
+      readySpecialtiesCount: 0,
+      totalSpecialties,
+      minPerSpecialty: MIN_QUESTIONS_PER_SPECIALTY,
+      isReadinessReady: false,
+    };
   }
 
   let totalWeight = 0;
   let weightedSum = 0;
-  let totalQuestionsAll = specialties.reduce((acc, s) => acc + s.verifiedCount, 0);
+  let readySpecialtiesCount = 0;
+  const totalQuestionsAll = specialties.reduce((acc, s) => acc + s.verifiedCount, 0);
 
   for (const s of specialties) {
     const items = srsValues.filter((r) => r.specialty === s.id);
+    if (items.length >= MIN_QUESTIONS_PER_SPECIALTY) {
+      readySpecialtiesCount += 1;
+    }
     if (items.length === 0) continue;
     const att = items.reduce((a, b) => a + b.attempts, 0);
     const cor = items.reduce((a, b) => a + b.correctCount, 0);
@@ -117,7 +140,20 @@ export function computeOverallReadiness(
     totalWeight += s.weight;
   }
 
-  const weightedAccuracy = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
-  const coveragePct = totalQuestionsAll > 0 ? Math.min(100, Math.round((srsValues.length / totalQuestionsAll) * 100)) : 0;
-  return { weightedAccuracy, attemptedTotal: srsValues.length, coveragePct };
+  const isReadinessReady = totalSpecialties > 0 && readySpecialtiesCount === totalSpecialties;
+  const weightedAccuracy =
+    isReadinessReady && totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+  const coveragePct =
+    totalQuestionsAll > 0
+      ? Math.min(100, Math.round((srsValues.length / totalQuestionsAll) * 100))
+      : 0;
+  return {
+    weightedAccuracy,
+    attemptedTotal: srsValues.length,
+    coveragePct,
+    readySpecialtiesCount,
+    totalSpecialties,
+    minPerSpecialty: MIN_QUESTIONS_PER_SPECIALTY,
+    isReadinessReady,
+  };
 }

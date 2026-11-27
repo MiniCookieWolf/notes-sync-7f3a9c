@@ -93,8 +93,14 @@ export function StatsPage({
         </h3>
         <div className="mt-3 grid grid-cols-3 gap-3 text-center">
           <div className="rounded-xl bg-slate-800/40 p-2.5">
-            <p className="text-xl font-black text-emerald-400">{readiness.weightedAccuracy}%</p>
-            <p className="text-[10px] text-slate-400">Akurasi Terbobot</p>
+            <p className="text-xl font-black text-emerald-400">
+              {readiness.isReadinessReady ? `${readiness.weightedAccuracy}%` : '—%'}
+            </p>
+            <p className="text-[10px] text-slate-400">
+              {readiness.isReadinessReady
+                ? 'Angka Kesiapan'
+                : `Siap ${readiness.readySpecialtiesCount}/${readiness.totalSpecialties} bidang`}
+            </p>
           </div>
           <div className="rounded-xl bg-slate-800/40 p-2.5">
             <p className="text-xl font-black text-cyan-400">{readiness.attemptedTotal}</p>
@@ -105,6 +111,11 @@ export function StatsPage({
             <p className="text-[10px] text-slate-400">Cakupan Bank</p>
           </div>
         </div>
+        {!readiness.isReadinessReady && (
+          <p className="mt-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-[11px] text-amber-300 leading-relaxed">
+            Angka kesiapan baru dikalkulasi setelah mengerjakan minimal {readiness.minPerSpecialty} soal di masing-masing bidang ({readiness.readySpecialtiesCount}/{readiness.totalSpecialties} bidang terpenuhi). Tap bidang di bawah untuk melengkapi.
+          </p>
+        )}
       </section>
 
       {/* 18 Specialty Breakdown */}
@@ -119,6 +130,8 @@ export function StatsPage({
         <div className="space-y-2">
           {manifest.specialties.map((s) => {
             const st = specStats[s.id];
+            const solved = st?.uniqueSolved || 0;
+            const remaining = Math.max(0, readiness.minPerSpecialty - solved);
             return (
               <div
                 key={s.id}
@@ -128,9 +141,11 @@ export function StatsPage({
                 <div className="flex justify-between text-xs gap-2">
                   <span className="font-bold">{s.shortName}</span>
                   <span className="text-slate-400 text-[11px]">
-                    {st?.attempted
-                      ? `Progres ${st.uniqueSolved}/${s.questionCount} (${st.coveragePct}%) • Akurasi ${st.accuracy}%`
-                      : `0/${s.questionCount} soal (Belum latihan)`}
+                    {solved >= readiness.minPerSpecialty
+                      ? `✓ ${solved}/${s.questionCount} (${st.coveragePct}%) • Akurasi ${st.accuracy}%`
+                      : solved > 0
+                      ? `${solved}/${s.questionCount} • kurang ${remaining} soal lagi`
+                      : `0/${s.questionCount} • butuh ${readiness.minPerSpecialty} soal`}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800">

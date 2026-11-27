@@ -73,13 +73,23 @@ export function HomePage({
           </div>
 
           <div className="text-right">
-            <div className="inline-flex flex-col items-center rounded-2xl bg-black/25 px-3.5 py-2 backdrop-blur">
+            <button
+              type="button"
+              onClick={() => onOpenTab('stats')}
+              className="inline-flex flex-col items-center rounded-2xl bg-black/25 px-3.5 py-2 backdrop-blur text-center transition hover:bg-black/35 active:scale-[0.98]"
+            >
               <span className="text-[10px] uppercase tracking-wider text-emerald-200">Kesiapan</span>
               <span className="text-2xl font-black">
-                {readiness.attemptedTotal > 0 ? `${readiness.weightedAccuracy}%` : 'Mulai!'}
+                {readiness.isReadinessReady
+                  ? `${readiness.weightedAccuracy}%`
+                  : `${readiness.readySpecialtiesCount}/${readiness.totalSpecialties}`}
               </span>
-              <span className="text-[10px] text-emerald-200/80">Lulus ≥66%</span>
-            </div>
+              <span className="text-[10px] text-emerald-200/80">
+                {readiness.isReadinessReady
+                  ? 'Lulus ≥66%'
+                  : `Min. ${readiness.minPerSpecialty} soal/bidang`}
+              </span>
+            </button>
           </div>
         </div>
 
