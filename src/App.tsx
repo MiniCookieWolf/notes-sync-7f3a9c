@@ -6,12 +6,6 @@ import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
 import {
-  getDriveAutoSync,
-  getGoogleSession,
-  hasValidGoogleToken,
-  uploadBackupToDrive,
-} from './lib/googleDrive';
-import {
   getPwaState,
   isNativeApp,
   subscribePwaState,
@@ -66,8 +60,6 @@ export default function App() {
   const [exitToast, setExitToast] = useState(false);
   const modalBackHandlerRef = useRef<(() => boolean) | null>(null);
   const lastBackPressRef = useRef(0);
-  const lastAutoSyncMsRef = useRef(0);
-  const lastSyncedProgressSigRef = useRef<string | null>(null);
   const sessionRef = useRef(session);
   const showSettingsRef = useRef(showSettings);
   const tabHistoryRef = useRef(tabHistory);
@@ -227,32 +219,6 @@ export default function App() {
     saveProgress(progress);
     document.documentElement.classList.toggle('dark', progress.settings.darkMode);
   }, [progress]);
-
-  // Silent background auto-backup to Google Drive when logged in & online
-  useEffect(() => {
-    if (!unlocked || !isOnline || !getDriveAutoSync()) return;
-    const gSession = getGoogleSession();
-    if (!hasValidGoogleToken(gSession)) return;
-
-    const sig = `${progress.xp}|${Object.keys(progress.srs).length}|${Object.keys(progress.flashcardSrs).length}|${progress.bookmarks.length}|${Object.keys(progress.notes).length}|${progress.lastStudyDate}`;
-    if (lastSyncedProgressSigRef.current === null) {
-      lastSyncedProgressSigRef.current = sig;
-      return;
-    }
-    if (sig === lastSyncedProgressSigRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      const now = Date.now();
-      if (now - lastAutoSyncMsRef.current < 90_000) return;
-      const activeSession = getGoogleSession();
-      if (!navigator.onLine || !getDriveAutoSync() || !hasValidGoogleToken(activeSession)) return;
-      lastAutoSyncMsRef.current = now;
-      lastSyncedProgressSigRef.current = sig;
-      uploadBackupToDrive(progress, { silent: true }).catch(() => {});
-    }, 15_000);
-
-    return () => window.clearTimeout(timer);
-  }, [progress, unlocked, isOnline]);
 
   // Trigger in-app scheduled notification if enabled & time matches
   useEffect(() => {

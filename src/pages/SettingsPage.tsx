@@ -4,10 +4,6 @@ import {
   ArrowLeft,
   ArrowUpCircle,
   CheckCircle2,
-  Cloud,
-  CloudDownload,
-  CloudOff,
-  CloudUpload,
   Download,
   Eye,
   HardDrive,
@@ -15,7 +11,6 @@ import {
   KeyRound,
   Lightbulb,
   Lock,
-  LogOut,
   Moon,
   RefreshCw,
   RotateCcw,
@@ -30,24 +25,6 @@ import {
 } from 'lucide-react';
 import { prefetchAllOfflineData } from '../lib/dataLoader';
 import {
-  downloadBackupFromDrive,
-  findDriveBackupMeta,
-  getBakedGoogleClientId,
-  getDriveAutoSync,
-  getGoogleClientId,
-  getGoogleSession,
-  getLastCloudSyncAt,
-  hasValidGoogleToken,
-  isGoogleDriveConfigured,
-  saveCustomGoogleClientId,
-  setDriveAutoSync,
-  signInWithGoogle,
-  signOutGoogle,
-  uploadBackupToDrive,
-  type DriveBackupMeta,
-  type GoogleSession,
-} from '../lib/googleDrive';
-import {
   checkAndApplyPwaUpdate,
   getPwaState,
   getStorageInfo,
@@ -58,6 +35,7 @@ import {
   type PwaState,
 } from '../lib/pwa';
 import {
+  buildBackupFilename,
   exportProgressJSON,
   getLastBackupAt,
   markBackupDone,
@@ -158,35 +136,19 @@ export function SettingsPage({
   const [backupErrorMsg, setBackupErrorMsg] = useState('');
   const [pendingImport, setPendingImport] = useState<{
     progress: UserProgress;
+    userName: string;
     exportedAt?: string;
     answeredCount: number;
     xp: number;
+    streakDays: number;
+    bookmarksCount: number;
   } | null>(null);
-  const [pendingImportSource, setPendingImportSource] = useState<'file' | 'drive'>('file');
-  const [googleSession, setGoogleSession] = useState<GoogleSession | null>(() => getGoogleSession());
-  const [driveMeta, setDriveMeta] = useState<DriveBackupMeta | null>(null);
-  const [driveBusy, setDriveBusy] = useState<'idle' | 'login' | 'upload' | 'download'>('idle');
-  const [driveMsg, setDriveMsg] = useState('');
-  const [driveErr, setDriveErr] = useState('');
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(() => getDriveAutoSync());
-  const [lastCloudSync, setLastCloudSync] = useState<string | null>(() => getLastCloudSyncAt());
-  const [customClientIdInput, setCustomClientIdInput] = useState<string>(() => getGoogleClientId());
-  const [showClientIdSetup, setShowClientIdSetup] = useState(false);
-  const [driveConfigured, setDriveConfigured] = useState<boolean>(() => isGoogleDriveConfigured());
   const [resetStep, setResetStep] = useState<0 | 1 | 2 | 3>(0);
   const [resetDoneMsg, setResetDoneMsg] = useState('');
 
   useEffect(() => {
     const unsub = subscribePwaState(setPwaState);
     getStorageInfo().then(setStorageInfo).catch(() => {});
-    const sess = getGoogleSession();
-    if (sess && hasValidGoogleToken(sess)) {
-      findDriveBackupMeta(sess.accessToken)
-        .then((meta) => {
-          if (meta) setDriveMeta(meta);
-        })
-        .catch(() => {});
-    }
     return unsub;
   }, []);
 
@@ -269,54 +231,83 @@ export function SettingsPage({
     }
   };
 
-  const backupFileName = () => `backup-studypro-${new Date().toISOString().slice(0, 10)}.json`;
-
-  const handleExport = () => {
-    setBackupErrorMsg('');
-    const json = exportProgressJSON(progress);
+  const downloadJsonFile = (json: string, filename: string) => {
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = backupFileName();
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleExport = () => {
+    setBackupErrorMsg('');
+    const json = exportProgressJSON(progress);
+    const filename = buildBackupFilename(progress);
+    downloadJsonFile(json, filename);
     const iso = markBackupDone();
     setLastBackupAt(iso);
+    const userName = progress.settings.userName || 'Dokter Pejuang';
     setBackupStatusMsg(
-      `✅ File backup (${Object.keys(progress.srs).length} soal, ${progress.xp} XP) berhasil diunduh ke folder Download HP!`
+      `✅ Save file "${filename}" (${userName} · ${Object.keys(progress.srs).length} soal, ${progress.xp} XP) berhasil diunduh!`
     );
   };
 
-  const canWebShareFile = (() => {
-    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
-    try {
-      const testFile = new File(['{}'], 'test.json', { type: 'application/json' });
-      return Boolean(navigator.canShare?.({ files: [testFile] }));
-    } catch {
-      return false;
-    }
-  })();
-
   const handleShareBackup = async () => {
     setBackupErrorMsg('');
-    try {
-      const json = exportProgressJSON(progress);
-      const file = new File([json], backupFileName(), { type: 'application/json' });
-      await navigator.share({
-        title: 'Backup Data Study Pro',
-        text: `Cadangan progres belajar (${Object.keys(progress.srs).length} soal, ${progress.xp} XP).`,
-        files: [file],
-      });
-      const iso = markBackupDone();
-      setLastBackupAt(iso);
-      setBackupStatusMsg('✅ File backup berhasil dibagikan/disimpan.');
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      setBackupErrorMsg('Gagal membuka menu bagikan. Gunakan tombol Download Backup Lokal.');
+    setBackupStatusMsg('');
+    const json = exportProgressJSON(progress);
+    const filename = buildBackupFilename(progress);
+    const userName = progress.settings.userName || 'Dokter Pejuang';
+    const shareTitle = 'Backup Save File Study Pro';
+    const shareText = `Save file Study Pro (${userName} — ${Object.keys(progress.srs).length} soal, ${progress.xp} XP)`;
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      const candidates = [
+        new File([json], filename, { type: 'application/json' }),
+        new File([json], filename, { type: 'text/plain' }),
+      ];
+
+      for (const file of candidates) {
+        let canShareFile = true;
+        try {
+          if (typeof navigator.canShare === 'function') {
+            canShareFile = navigator.canShare({ files: [file] });
+          }
+        } catch {
+          canShareFile = false;
+        }
+        if (!canShareFile) continue;
+
+        try {
+          await navigator.share({
+            title: shareTitle,
+            text: shareText,
+            files: [file],
+          });
+          const iso = markBackupDone();
+          setLastBackupAt(iso);
+          setBackupStatusMsg(
+            `✅ Save file "${filename}" (${userName} · ${Object.keys(progress.srs).length} soal, ${progress.xp} XP) siap dibagikan/disimpan!`
+          );
+          return;
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return;
+          // Try next MIME candidate or fallback below
+        }
+      }
     }
+
+    // Fallback when browser does not support Web Share API with files
+    downloadJsonFile(json, filename);
+    const iso = markBackupDone();
+    setLastBackupAt(iso);
+    setBackupStatusMsg(
+      `✅ Browser ini tidak mendukung menu Share file — file backup "${filename}" langsung diunduh ke perangkat!`
+    );
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -329,10 +320,9 @@ export function SettingsPage({
     reader.onload = () => {
       const parsed = parseBackupJSON(String(reader.result || ''));
       if (parsed) {
-        setPendingImportSource('file');
         setPendingImport(parsed);
       } else {
-        setBackupErrorMsg('File backup tidak valid atau rusak. Pastikan memilih file .json dari Study Pro.');
+        setBackupErrorMsg('File save tidak valid atau rusak. Pastikan memilih file .json dari Study Pro.');
       }
     };
     reader.readAsText(file);
@@ -341,125 +331,10 @@ export function SettingsPage({
   const confirmPendingImport = () => {
     if (!pendingImport) return;
     onImportProgress(pendingImport.progress);
-    const label = pendingImportSource === 'drive' ? 'Google Drive' : 'file lokal';
-    const msg = `✅ Progres belajar (${pendingImport.answeredCount} soal, ${pendingImport.xp} XP) berhasil dipulihkan dari ${label}!`;
-    if (pendingImportSource === 'drive') {
-      setDriveMsg(msg);
-      setDriveErr('');
-    } else {
-      setBackupStatusMsg(msg);
-    }
+    setBackupStatusMsg(
+      `✅ Progress belajar & nama user (${pendingImport.userName}) — ${pendingImport.answeredCount} soal, ${pendingImport.xp} XP berhasil dipulihkan!`
+    );
     setPendingImport(null);
-  };
-
-  const handleSaveClientId = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = customClientIdInput.trim();
-    saveCustomGoogleClientId(clean);
-    setDriveConfigured(isGoogleDriveConfigured());
-    setShowClientIdSetup(false);
-    setDriveErr('');
-    if (clean) {
-      setDriveMsg('Client ID tersimpan di perangkat ini. Sekarang kamu bisa Login dengan Google.');
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setDriveBusy('login');
-    setDriveErr('');
-    setDriveMsg('');
-    try {
-      const sess = await signInWithGoogle({ prompt: 'select_account' });
-      setGoogleSession(sess);
-      if (progress.settings.userName === 'Dokter Pejuang' && sess.user.name) {
-        onUpdateSettings({ userName: sess.user.name });
-      }
-      const meta = await findDriveBackupMeta(sess.accessToken);
-      setDriveMeta(meta);
-      if (meta && Object.keys(progress.srs).length === 0) {
-        const dl = await downloadBackupFromDrive();
-        if (dl) {
-          const parsed = parseBackupJSON(dl.raw);
-          if (parsed && parsed.answeredCount > 0) {
-            setPendingImportSource('drive');
-            setPendingImport(parsed);
-            setDriveMsg(
-              `✅ Login sebagai ${sess.user.email}. Ditemukan backup di Google Drive (${parsed.answeredCount} soal, ${parsed.xp} XP) — konfirmasi di bawah untuk memulihkan!`
-            );
-            return;
-          }
-        }
-      }
-      setDriveMsg(
-        meta
-          ? `✅ Login sebagai ${sess.user.email}. Backup Drive ditemukan.`
-          : `✅ Login sebagai ${sess.user.email}. Siap backup ke Google Drive.`
-      );
-    } catch (err) {
-      setDriveErr(err instanceof Error ? err.message : 'Gagal login dengan Google.');
-    } finally {
-      setDriveBusy('idle');
-    }
-  };
-
-  const handleGoogleLogout = () => {
-    signOutGoogle();
-    setGoogleSession(null);
-    setDriveMeta(null);
-    setDriveMsg('');
-    setDriveErr('');
-  };
-
-  const handleToggleAutoSync = () => {
-    const next = !autoSyncEnabled;
-    setDriveAutoSync(next);
-    setAutoSyncEnabled(next);
-  };
-
-  const handleDriveUpload = async () => {
-    setDriveBusy('upload');
-    setDriveErr('');
-    setDriveMsg('');
-    try {
-      const { meta, syncedAt } = await uploadBackupToDrive(progress);
-      setDriveMeta(meta);
-      setLastCloudSync(syncedAt);
-      setGoogleSession(getGoogleSession());
-      setDriveMsg(
-        `✅ Tersimpan di Google Drive (${Object.keys(progress.srs).length} soal, ${progress.xp} XP)!`
-      );
-    } catch (err) {
-      setDriveErr(err instanceof Error ? err.message : 'Gagal menyimpan backup ke Google Drive.');
-    } finally {
-      setDriveBusy('idle');
-    }
-  };
-
-  const handleDriveDownload = async () => {
-    setDriveBusy('download');
-    setDriveErr('');
-    setDriveMsg('');
-    try {
-      const res = await downloadBackupFromDrive();
-      setGoogleSession(getGoogleSession());
-      if (!res) {
-        setDriveErr('Belum ada file backup di Google Drive akun ini.');
-        return;
-      }
-      setDriveMeta(res.meta);
-      const parsed = parseBackupJSON(res.raw);
-      if (!parsed) {
-        setDriveErr('Format backup di Google Drive tidak valid.');
-        return;
-      }
-      setPendingImportSource('drive');
-      setPendingImport(parsed);
-      setDriveMsg('Backup Google Drive siap dipulihkan — konfirmasi di bagian bawah.');
-    } catch (err) {
-      setDriveErr(err instanceof Error ? err.message : 'Gagal mengambil backup dari Google Drive.');
-    } finally {
-      setDriveBusy('idle');
-    }
   };
 
   const handleReset = () => {
@@ -639,219 +514,11 @@ export function SettingsPage({
         )}
       </section>
 
-      {/* Section 1a: Cloud Backup Google Drive (Login Google) */}
+      {/* Section 1: Backup & Pulihkan Save File */}
       <section className={cardCls}>
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-            Cloud Backup Google Drive
-          </p>
-          {googleSession ? (
-            <span
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold ${
-                hasValidGoogleToken(googleSession)
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'bg-amber-500/15 text-amber-300'
-              }`}
-            >
-              <Cloud className="h-3 w-3" />
-              {hasValidGoogleToken(googleSession) ? 'Terhubung' : 'Perlu Refresh Sesi'}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-              <CloudOff className="h-3 w-3" /> Opsional
-            </span>
-          )}
-        </div>
-
-        {!googleSession ? (
-          <div className="space-y-2.5">
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Masuk dengan akun Google untuk menyimpan &amp; memulihkan backup progres secara privat di{' '}
-              <strong>Google Drive</strong> (folder aplikasi tersembunyi{' '}
-              <code className="text-[10px]">appDataFolder</code>, tidak mengakses file pribadimu).
-            </p>
-
-            {driveConfigured ? (
-              <button
-                type="button"
-                disabled={driveBusy !== 'idle'}
-                onClick={handleGoogleLogin}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-white py-2.5 text-xs font-extrabold text-slate-900 shadow active:scale-[0.99] disabled:opacity-60"
-              >
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
-                  />
-                </svg>
-                {driveBusy === 'login' ? 'Menghubungkan Akun Google...' : 'Login dengan Google'}
-              </button>
-            ) : (
-              <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px]">
-                <p className="font-bold text-amber-300">
-                  Google OAuth Client ID belum terpasang di build ini
-                </p>
-                <p className="text-slate-300 leading-relaxed">
-                  Untuk mengaktifkan tombol <strong>Login dengan Google</strong>, masukkan Google OAuth Client ID (<code className="text-[10px]">...apps.googleusercontent.com</code>) atau simpan ke secret aplikasi.
-                </p>
-                <form onSubmit={handleSaveClientId} className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={customClientIdInput}
-                    onChange={(e) => setCustomClientIdInput(e.target.value)}
-                    placeholder="123456-abc.apps.googleusercontent.com"
-                    className={`flex-1 rounded-lg border px-2.5 py-1.5 text-[11px] ${
-                      dark
-                        ? 'border-slate-700 bg-slate-950 text-white'
-                        : 'border-slate-300 bg-white text-slate-900'
-                    }`}
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white"
-                  >
-                    Simpan
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {!getBakedGoogleClientId() && driveConfigured && (
-              <button
-                type="button"
-                onClick={() => setShowClientIdSetup((v) => !v)}
-                className="text-[10px] text-slate-400 underline"
-              >
-                {showClientIdSetup ? 'Tutup pengaturan Client ID' : 'Ubah Google Client ID'}
-              </button>
-            )}
-
-            {!getBakedGoogleClientId() && showClientIdSetup && (
-              <form onSubmit={handleSaveClientId} className="flex gap-2">
-                <input
-                  type="text"
-                  value={customClientIdInput}
-                  onChange={(e) => setCustomClientIdInput(e.target.value)}
-                  placeholder="...apps.googleusercontent.com"
-                  className={`flex-1 rounded-lg border px-2.5 py-1.5 text-[11px] ${
-                    dark
-                      ? 'border-slate-700 bg-slate-950 text-white'
-                      : 'border-slate-300 bg-white text-slate-900'
-                  }`}
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white"
-                >
-                  Simpan
-                </button>
-              </form>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            <div
-              className={`flex items-center justify-between gap-2.5 rounded-xl border p-2.5 ${
-                dark ? 'border-slate-800 bg-slate-950/60' : 'border-slate-200 bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                {googleSession.user.picture ? (
-                  <img
-                    src={googleSession.user.picture}
-                    alt={googleSession.user.name}
-                    className="h-9 w-9 shrink-0 rounded-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-extrabold text-white">
-                    {googleSession.user.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-extrabold">{googleSession.user.name}</p>
-                  <p className="truncate text-[11px] text-slate-400">{googleSession.user.email}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleGoogleLogout}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold text-slate-300 hover:border-rose-500/40 hover:text-rose-300"
-              >
-                <LogOut className="h-3 w-3" /> Keluar
-              </button>
-            </div>
-
-            <div className="text-[11px] text-slate-400">
-              Sync Drive terakhir:{' '}
-              <strong className={dark ? 'text-slate-200' : 'text-slate-700'}>
-                {driveMeta?.modifiedTime || lastCloudSync
-                  ? new Date(driveMeta?.modifiedTime || lastCloudSync || '').toLocaleString('id-ID', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })
-                  : 'Belum pernah upload ke Drive'}
-              </strong>
-            </div>
-
-            <SwitchRow
-              icon={CloudUpload}
-              iconColor="text-cyan-400"
-              title="Auto-Backup ke Google Drive"
-              desc="Otomatis unggah progres saat HP online dan sesi Google aktif."
-              checked={autoSyncEnabled}
-              onToggle={handleToggleAutoSync}
-              dark={dark}
-            />
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={driveBusy !== 'idle'}
-                onClick={handleDriveUpload}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow disabled:opacity-60"
-              >
-                <CloudUpload className="h-3.5 w-3.5" />
-                {driveBusy === 'upload' ? 'Mengunggah...' : 'Backup ke Drive'}
-              </button>
-              <button
-                type="button"
-                disabled={driveBusy !== 'idle'}
-                onClick={handleDriveDownload}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-xs font-extrabold text-cyan-300 disabled:opacity-60"
-              >
-                <CloudDownload className="h-3.5 w-3.5" />
-                {driveBusy === 'download' ? 'Mengunduh...' : 'Pulihkan Drive'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {driveMsg && <p className="text-[11px] font-semibold text-emerald-400">{driveMsg}</p>}
-        {driveErr && (
-          <p className="flex items-center gap-1 text-[11px] font-semibold text-rose-400">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {driveErr}
-          </p>
-        )}
-      </section>
-
-      {/* Section 1b: Penyimpanan Data & Backup Lokal */}
-      <section className={cardCls}>
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-            Penyimpanan Data & Backup Lokal
+            Backup &amp; Pulihkan Save File
           </p>
           {storageInfo.persisted ? (
             <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
@@ -864,7 +531,24 @@ export function SettingsPage({
           )}
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 pt-1 text-center">
+        <div
+          className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 ${
+            dark ? 'border-slate-800 bg-slate-950/70' : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <span className="text-[11px] font-semibold text-slate-400 shrink-0">Nama User Save File:</span>
+          <input
+            type="text"
+            value={progress.settings.userName}
+            onChange={(e) => onUpdateSettings({ userName: e.target.value })}
+            placeholder="Dokter Pejuang"
+            className={`w-40 rounded-lg border px-2.5 py-1 text-xs font-bold text-right ${
+              dark ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900'
+            }`}
+          />
+        </div>
+
+        <div className="grid grid-cols-4 gap-1.5 text-center">
           {[
             { label: 'Soal', val: Object.keys(progress.srs).length },
             { label: 'XP', val: progress.xp },
@@ -890,7 +574,7 @@ export function SettingsPage({
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })
-                : 'Belum pernah download backup lokal'}
+                : 'Belum pernah backup save file'}
             </strong>
           </span>
           {!storageInfo.persisted && (
@@ -906,37 +590,35 @@ export function SettingsPage({
 
         <button
           type="button"
-          onClick={handleExport}
+          onClick={handleShareBackup}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow active:scale-[0.99]"
         >
-          <Download className="h-4 w-4" /> Download Backup Lokal (.json)
+          <Share2 className="h-4 w-4" /> Share to Backup Save File (.json)
         </button>
 
-        <div className={`grid gap-2 ${canWebShareFile ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold">
-            <Upload className="h-3.5 w-3.5" /> Pulihkan Backup (.json)
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2 text-xs font-extrabold text-cyan-300">
+            <Upload className="h-3.5 w-3.5" /> Import Save File (.json)
             <input
               type="file"
-              accept=".json,application/json"
+              accept=".json,application/json,text/plain"
               onChange={handleImportFile}
               className="hidden"
             />
           </label>
-          {canWebShareFile && (
-            <button
-              type="button"
-              onClick={handleShareBackup}
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold"
-            >
-              <Share2 className="h-3.5 w-3.5" /> Bagikan / Simpan Drive
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleExport}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold"
+          >
+            <Download className="h-3.5 w-3.5" /> Download Lokal (.json)
+          </button>
         </div>
 
         {pendingImport && (
           <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
             <p className="text-xs font-bold text-amber-300">
-              Pulihkan backup {pendingImportSource === 'drive' ? 'Google Drive ' : ''}
+              Pulihkan save file{' '}
               {pendingImport.exportedAt
                 ? `dari ${new Date(pendingImport.exportedAt).toLocaleString('id-ID', {
                     dateStyle: 'medium',
@@ -945,9 +627,19 @@ export function SettingsPage({
                 : 'ini'}
               ?
             </p>
-            <p className="text-[11px] text-slate-300">
-              ({pendingImport.answeredCount.toLocaleString()} soal, {pendingImport.xp.toLocaleString()} XP) — Ini akan menimpa progres saat ini.
-            </p>
+            <div className="space-y-0.5 text-[11px] text-slate-300">
+              <p>
+                Nama User: <strong className="text-white">{pendingImport.userName}</strong>
+              </p>
+              <p>
+                Data: {pendingImport.answeredCount.toLocaleString()} soal ·{' '}
+                {pendingImport.xp.toLocaleString()} XP · {pendingImport.streakDays} hari streak ·{' '}
+                {pendingImport.bookmarksCount} bookmark
+              </p>
+              <p className="text-[10px] text-amber-200/90">
+                Ini akan menimpa progres belajar &amp; nama user saat ini.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -961,7 +653,7 @@ export function SettingsPage({
                 onClick={confirmPendingImport}
                 className="rounded-lg bg-emerald-600 py-1.5 text-xs font-extrabold text-white"
               >
-                Ya, Pulihkan
+                Ya, Pulihkan Data
               </button>
             </div>
           </div>

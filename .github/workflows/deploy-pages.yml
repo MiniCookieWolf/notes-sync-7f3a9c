@@ -32,8 +32,6 @@ jobs:
         run: npm ci
 
       - name: Build production PWA
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Generate version.json and 404.html fallback

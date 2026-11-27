@@ -129,27 +129,59 @@ export function saveProgress(progress: UserProgress): void {
   }
 }
 
+export function buildBackupFilename(progress: UserProgress): string {
+  const rawName = (progress.settings.userName || 'user')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 24);
+  const safeName = rawName || 'user';
+  return `studypro-save-${safeName}-${todayISO()}.json`;
+}
+
 export function exportProgressJSON(progress: UserProgress): string {
   return JSON.stringify(
-    { version: '1.5.0', exportedAt: new Date().toISOString(), data: progress },
+    {
+      version: '1.5.1',
+      exportedAt: new Date().toISOString(),
+      userName: progress.settings.userName || 'Dokter Pejuang',
+      data: progress,
+    },
     null,
     2
   );
 }
 
-export function parseBackupJSON(
-  raw: string
-): { progress: UserProgress; exportedAt?: string; answeredCount: number; xp: number } | null {
+export function parseBackupJSON(raw: string): {
+  progress: UserProgress;
+  userName: string;
+  exportedAt?: string;
+  answeredCount: number;
+  xp: number;
+  streakDays: number;
+  bookmarksCount: number;
+} | null {
   try {
     const parsed = JSON.parse(raw);
     const candidate = parsed.data || parsed;
     if (!candidate || typeof candidate !== 'object' || !candidate.srs) return null;
     const def = defaultProgress();
+    const topUserName =
+      typeof parsed.userName === 'string' && parsed.userName.trim()
+        ? parsed.userName.trim()
+        : undefined;
+    const mergedSettings = {
+      ...def.settings,
+      ...(candidate.settings || {}),
+    };
+    if (!candidate.settings?.userName && topUserName) {
+      mergedSettings.userName = topUserName;
+    }
     const progress: UserProgress = {
       ...def,
       ...candidate,
       planConfig: { ...def.planConfig, ...(candidate.planConfig || {}) },
-      settings: { ...def.settings, ...(candidate.settings || {}) },
+      settings: mergedSettings,
       srs: candidate.srs || {},
       flashcardSrs: candidate.flashcardSrs || {},
       bookmarks: candidate.bookmarks || [],
@@ -158,9 +190,12 @@ export function parseBackupJSON(
     };
     return {
       progress,
+      userName: progress.settings.userName || 'Dokter Pejuang',
       exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : undefined,
       answeredCount: Object.keys(progress.srs).length,
       xp: Number(progress.xp || 0),
+      streakDays: Number(progress.streakDays || 0),
+      bookmarksCount: progress.bookmarks.length,
     };
   } catch {
     return null;
