@@ -1,7 +1,7 @@
 {
   "name": "ukmppd-app",
   "private": true,
-  "version": "1.3.1",
+  "version": "1.3.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
+    "@capacitor/app": "^6.0.3",
     "@capacitor/core": "^6.2.4",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",

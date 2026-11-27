@@ -55,7 +55,7 @@ export function defaultProgress(): UserProgress {
     settings: {
       darkMode: true,
       haptics: true,
-      activeRecallDefault: true,
+      activeRecallDefault: false,
       showKeywordsHint: false,
       fontSize: 'normal',
       autoCheckUpdates: true,
@@ -67,7 +67,10 @@ export function defaultProgress(): UserProgress {
 export function loadProgress(): UserProgress {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultProgress();
+    if (!raw) {
+      localStorage.setItem('ws_ar_default_off_v132', '1');
+      return defaultProgress();
+    }
     const parsed = JSON.parse(raw) as Partial<UserProgress>;
     const def = defaultProgress();
     const merged: UserProgress = {
@@ -81,6 +84,11 @@ export function loadProgress(): UserProgress {
       notes: parsed.notes || {},
       dailyLogs: parsed.dailyLogs || {},
     };
+    // One-time v1.3.2 default update: ensure A-E options are visible by default
+    if (!localStorage.getItem('ws_ar_default_off_v132')) {
+      merged.settings.activeRecallDefault = false;
+      localStorage.setItem('ws_ar_default_off_v132', '1');
+    }
     // Recalculate streak continuity if missed > 1 day
     if (merged.lastStudyDate) {
       const gap = daysBetweenISO(merged.lastStudyDate, todayISO());

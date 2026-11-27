@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { ArrowUpCircle, Flame, Lock, Moon, Settings, Sun, WifiOff, X } from 'lucide-react';
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
@@ -43,6 +45,7 @@ export default function App() {
   const [loadError, setLoadError] = useState<string>('');
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
   const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [tabHistory, setTabHistory] = useState<TabId[]>(['home']);
   const [showSettings, setShowSettings] = useState(false);
   const [session, setSession] = useState<QuizSessionConfig | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -51,6 +54,23 @@ export default function App() {
   const [bannerDlProg, setBannerDlProg] = useState<DownloadProgress | null>(null);
   const [bannerNeedsPerm, setBannerNeedsPerm] = useState(false);
   const [bannerErr, setBannerErr] = useState('');
+  const [exitToast, setExitToast] = useState(false);
+  const modalBackHandlerRef = useRef<(() => boolean) | null>(null);
+  const lastBackPressRef = useRef(0);
+
+  const registerModalBackHandler = useCallback((fn: (() => boolean) | null) => {
+    modalBackHandlerRef.current = fn;
+  }, []);
+
+  const navigateTab = useCallback((tab: TabId) => {
+    setShowSettings(false);
+    setActiveTab((prev) => {
+      if (prev !== tab) {
+        setTabHistory((hist) => [...hist.slice(-9), tab]);
+      }
+      return tab;
+    });
+  }, []);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -62,6 +82,46 @@ export default function App() {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
+
+  // Android hardware / gesture Back button navigation
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handlePromise = CapacitorApp.addListener('backButton', () => {
+      if (modalBackHandlerRef.current && modalBackHandlerRef.current()) {
+        return;
+      }
+      if (session) {
+        setSession(null);
+        return;
+      }
+      if (showSettings) {
+        setShowSettings(false);
+        return;
+      }
+      if (tabHistory.length > 1) {
+        const nextHist = tabHistory.slice(0, -1);
+        setTabHistory(nextHist);
+        setActiveTab(nextHist[nextHist.length - 1]);
+        return;
+      }
+      if (activeTab !== 'home') {
+        setTabHistory(['home']);
+        setActiveTab('home');
+        return;
+      }
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        CapacitorApp.exitApp();
+      } else {
+        lastBackPressRef.current = now;
+        setExitToast(true);
+        setTimeout(() => setExitToast(false), 2000);
+      }
+    });
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {});
+    };
+  }, [session, showSettings, tabHistory, activeTab]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -444,6 +504,7 @@ export default function App() {
             notes: { ...p.notes, [id]: note },
           }))
         }
+        registerBackHandler={registerModalBackHandler}
         onExit={() => setSession(null)}
       />
     );
@@ -608,6 +669,7 @@ export default function App() {
               setShowSettings(false);
               setUnlocked(false);
             }}
+            registerBackHandler={registerModalBackHandler}
             onBack={() => setShowSettings(false)}
           />
         ) : (
@@ -641,7 +703,7 @@ export default function App() {
                   })
                 }
                 onStartTodayMission={launchMission}
-                onOpenTab={(t) => setActiveTab(t)}
+                onOpenTab={(t) => navigateTab(t)}
               />
             )}
 
@@ -702,12 +764,15 @@ export default function App() {
         )}
       </main>
 
+      {exitToast && (
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-xs font-bold text-white shadow-xl border border-slate-700">
+          Tekan kembali sekali lagi untuk keluar
+        </div>
+      )}
+
       <BottomNav
         activeTab={activeTab}
-        onSelect={(tab) => {
-          setShowSettings(false);
-          setActiveTab(tab);
-        }}
+        onSelect={navigateTab}
         dueCount={dueCount}
         darkMode={dark}
       />

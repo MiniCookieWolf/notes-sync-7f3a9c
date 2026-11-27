@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowUpCircle,
@@ -37,6 +37,7 @@ interface SettingsPageProps {
   onImportProgress: (next: UserProgress) => void;
   onResetProgress: () => void;
   onLockNow: () => void;
+  registerBackHandler?: (fn: (() => boolean) | null) => void;
   onBack: () => void;
 }
 
@@ -93,6 +94,7 @@ export function SettingsPage({
   onImportProgress,
   onResetProgress,
   onLockNow,
+  registerBackHandler,
   onBack,
 }: SettingsPageProps) {
   const dark = progress.settings.darkMode;
@@ -107,6 +109,18 @@ export function SettingsPage({
   const [dlError, setDlError] = useState('');
   const [resetStep, setResetStep] = useState<0 | 1 | 2 | 3>(0);
   const [resetDoneMsg, setResetDoneMsg] = useState('');
+
+  useEffect(() => {
+    if (!registerBackHandler) return;
+    registerBackHandler(() => {
+      if (resetStep > 0) {
+        setResetStep(0);
+        return true;
+      }
+      return false;
+    });
+    return () => registerBackHandler(null);
+  }, [registerBackHandler, resetStep]);
 
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);

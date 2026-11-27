@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.3.2';
 export const VERSION_JSON_URL =
   'https://github.com/MiniCookieWolf/notes-sync-7f3a9c/releases/latest/download/version.json';
 export const UPDATE_API_URL =

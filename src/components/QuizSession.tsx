@@ -40,6 +40,7 @@ interface QuizSessionProps {
   ) => void;
   onToggleBookmark: (questionId: string) => void;
   onSaveNote: (questionId: string, note: string) => void;
+  registerBackHandler?: (fn: (() => boolean) | null) => void;
   onExit: (summary?: { answered: number; correct: number; bySpec: Record<string, { total: number; correct: number }> }) => void;
 }
 
@@ -51,6 +52,7 @@ export function QuizSession({
   onAdjustSrsRating,
   onToggleBookmark,
   onSaveNote,
+  registerBackHandler,
   onExit,
 }: QuizSessionProps) {
   const [idx, setIdx] = useState(0);
@@ -83,6 +85,22 @@ export function QuizSession({
       });
     }
   }, [idx, q?.id, q?.specialty, q?.topicId, config.activeRecallFirst, cbtSubmitted]);
+
+  useEffect(() => {
+    if (!registerBackHandler) return;
+    registerBackHandler(() => {
+      if (zoomImage) {
+        setZoomImage(null);
+        return true;
+      }
+      if (showNavGrid) {
+        setShowNavGrid(false);
+        return true;
+      }
+      return false;
+    });
+    return () => registerBackHandler(null);
+  }, [registerBackHandler, zoomImage, showNavGrid]);
 
   useEffect(() => {
     if (config.mode !== 'cbt' || cbtSubmitted || !config.timeLimitSec) return;
