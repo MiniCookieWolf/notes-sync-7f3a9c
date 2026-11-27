@@ -131,7 +131,7 @@ export function saveProgress(progress: UserProgress): void {
 
 export function exportProgressJSON(progress: UserProgress): string {
   return JSON.stringify(
-    { version: '1.4.0', exportedAt: new Date().toISOString(), data: progress },
+    { version: '1.5.0', exportedAt: new Date().toISOString(), data: progress },
     null,
     2
   );
