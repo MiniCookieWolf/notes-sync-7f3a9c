@@ -1,6 +1,9 @@
 name: Deploy PWA to GitHub Pages
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -31,8 +34,26 @@ jobs:
       - name: Build production PWA
         run: npm run build
 
+      - name: Generate version.json and 404.html fallback
+        run: |
+          python3 - <<'EOF'
+          import json, shutil, datetime
+          with open("package.json", "r", encoding="utf-8") as f:
+              ver = json.load(f)["version"]
+          meta = {
+              "version": ver,
+              "mode": "pwa",
+              "publishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          with open("dist/version.json", "w", encoding="utf-8") as f:
+              json.dump(meta, f, indent=2)
+          shutil.copyfile("dist/index.html", "dist/404.html")
+          EOF
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

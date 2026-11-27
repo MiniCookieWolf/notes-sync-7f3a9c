@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { ArrowUpCircle, Flame, Lock, Moon, Settings, Sun, WifiOff, X } from 'lucide-react';
+import { ArrowUpCircle, Flame, Lock, Moon, Settings, Smartphone, Sun, WifiOff, X } from 'lucide-react';
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
+import {
+  getPwaState,
+  isNativeApp,
+  subscribePwaState,
+  triggerPwaInstall,
+  type PwaState,
+} from './lib/pwa';
 import {
   getDueIds,
   pickSmartMixQuestions,
@@ -48,9 +55,24 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateCheckResult | null>(null);
+  const [pwaState, setPwaState] = useState<PwaState>(() => getPwaState());
+  const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [exitToast, setExitToast] = useState(false);
   const modalBackHandlerRef = useRef<(() => boolean) | null>(null);
   const lastBackPressRef = useRef(0);
+  const sessionRef = useRef(session);
+  const showSettingsRef = useRef(showSettings);
+  const tabHistoryRef = useRef(tabHistory);
+  const activeTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    sessionRef.current = session;
+    showSettingsRef.current = showSettings;
+    tabHistoryRef.current = tabHistory;
+    activeTabRef.current = activeTab;
+  }, [session, showSettings, tabHistory, activeTab]);
+
+  useEffect(() => subscribePwaState(setPwaState), []);
 
   const registerModalBackHandler = useCallback((fn: (() => boolean) | null) => {
     modalBackHandlerRef.current = fn;
@@ -117,6 +139,65 @@ export default function App() {
     };
   }, [session, showSettings, tabHistory, activeTab]);
 
+  // Web / Chrome PWA Android hardware Back button navigation via history guard
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() || !unlocked) return;
+
+    const ensureGuard = () => {
+      if (!window.history.state?.studyProGuard) {
+        window.history.pushState({ studyProGuard: true }, '');
+      }
+    };
+    ensureGuard();
+
+    let allowingExit = false;
+    const onPopState = () => {
+      if (allowingExit) return;
+
+      if (modalBackHandlerRef.current && modalBackHandlerRef.current()) {
+        window.history.pushState({ studyProGuard: true }, '');
+        return;
+      }
+      if (sessionRef.current) {
+        setSession(null);
+        window.history.pushState({ studyProGuard: true }, '');
+        return;
+      }
+      if (showSettingsRef.current) {
+        setShowSettings(false);
+        window.history.pushState({ studyProGuard: true }, '');
+        return;
+      }
+      if (tabHistoryRef.current.length > 1) {
+        const nextHist = tabHistoryRef.current.slice(0, -1);
+        setTabHistory(nextHist);
+        setActiveTab(nextHist[nextHist.length - 1]);
+        window.history.pushState({ studyProGuard: true }, '');
+        return;
+      }
+      if (activeTabRef.current !== 'home') {
+        setTabHistory(['home']);
+        setActiveTab('home');
+        window.history.pushState({ studyProGuard: true }, '');
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        allowingExit = true;
+        window.history.back();
+      } else {
+        lastBackPressRef.current = now;
+        setExitToast(true);
+        setTimeout(() => setExitToast(false), 2000);
+        window.history.pushState({ studyProGuard: true }, '');
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [unlocked]);
+
   useEffect(() => {
     if (!unlocked) return;
     loadManifest()
@@ -125,6 +206,7 @@ export default function App() {
   }, [unlocked]);
 
   useEffect(() => {
+    if (!isNativeApp()) return;
     if (!unlocked || !isOnline || !progress.settings.autoCheckUpdates || !shouldAutoCheck(progress.settings.autoCheckUpdates)) return;
     checkForAppUpdate().then((res) => {
       if (res.status === 'update_available') {
@@ -565,6 +647,36 @@ export default function App() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-lg px-4 pt-4">
+        {!isNativeApp() && !pwaState.isStandalone && pwaState.canInstall && !installBannerDismissed && (
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2.5 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <Smartphone className="h-4 w-4 shrink-0 text-cyan-400" />
+              <span className="font-bold text-cyan-200 truncate">
+                Pasang Study Pro di Layar Utama (tanpa APK)
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerPwaInstall();
+                }}
+                className="rounded-lg bg-emerald-600 px-2.5 py-1 font-extrabold text-white"
+              >
+                Install
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallBannerDismissed(true)}
+                className="rounded-lg p-1 text-slate-400 hover:text-white"
+                aria-label="Tutup banner install"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {availableUpdate && availableUpdate.status === 'update_available' && (
           <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-xs">
             <div className="flex items-center gap-2 min-w-0">

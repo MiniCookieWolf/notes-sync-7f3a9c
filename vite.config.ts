@@ -12,6 +12,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
+        id: './',
         name: 'Study Pro',
         short_name: 'Study Pro',
         description: 'Personal offline notes and flashcard sync.',
@@ -32,19 +33,28 @@ export default defineConfig({
             src: 'icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.includes('/data/'),
-            handler: 'CacheFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'ukmppd-data-cache-v1',
+              cacheName: 'studypro-data-cache-v2',
               expiration: {
                 maxEntries: 80,
                 maxAgeSeconds: 60 * 60 * 24 * 365
@@ -55,12 +65,13 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: ({ url }) => url.pathname.includes('/assets/qimg/'),
+            urlPattern: ({ url }) =>
+              url.pathname.includes('/assets/qimg/') || url.pathname.includes('/assets/eimg/'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'ukmppd-images-cache-v1',
+              cacheName: 'studypro-images-cache-v2',
               expiration: {
-                maxEntries: 800,
+                maxEntries: 2500,
                 maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {

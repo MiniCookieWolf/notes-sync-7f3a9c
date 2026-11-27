@@ -1,6 +1,25 @@
 import type { StudyPlanConfig, UserProgress } from './types';
 
 const STORAGE_KEY = 'ukmppd_active_mastery_v1';
+const LAST_BACKUP_KEY = 'studypro_last_backup_v1';
+
+export function getLastBackupAt(): string | null {
+  try {
+    return localStorage.getItem(LAST_BACKUP_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function markBackupDone(): string {
+  const iso = new Date().toISOString();
+  try {
+    localStorage.setItem(LAST_BACKUP_KEY, iso);
+  } catch {
+    // ignore storage errors
+  }
+  return iso;
+}
 
 export function todayISO(): string {
   const d = new Date();
@@ -111,22 +130,43 @@ export function saveProgress(progress: UserProgress): void {
 }
 
 export function exportProgressJSON(progress: UserProgress): string {
-  return JSON.stringify({ exportedAt: new Date().toISOString(), data: progress }, null, 2);
+  return JSON.stringify(
+    { version: '1.4.0', exportedAt: new Date().toISOString(), data: progress },
+    null,
+    2
+  );
 }
 
-export function importProgressJSON(raw: string): UserProgress | null {
+export function parseBackupJSON(
+  raw: string
+): { progress: UserProgress; exportedAt?: string; answeredCount: number; xp: number } | null {
   try {
     const parsed = JSON.parse(raw);
     const candidate = parsed.data || parsed;
     if (!candidate || typeof candidate !== 'object' || !candidate.srs) return null;
     const def = defaultProgress();
-    return {
+    const progress: UserProgress = {
       ...def,
       ...candidate,
       planConfig: { ...def.planConfig, ...(candidate.planConfig || {}) },
       settings: { ...def.settings, ...(candidate.settings || {}) },
+      srs: candidate.srs || {},
+      flashcardSrs: candidate.flashcardSrs || {},
+      bookmarks: candidate.bookmarks || [],
+      notes: candidate.notes || {},
+      dailyLogs: candidate.dailyLogs || {},
+    };
+    return {
+      progress,
+      exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : undefined,
+      answeredCount: Object.keys(progress.srs).length,
+      xp: Number(progress.xp || 0),
     };
   } catch {
     return null;
   }
+}
+
+export function importProgressJSON(raw: string): UserProgress | null {
+  return parseBackupJSON(raw)?.progress ?? null;
 }
