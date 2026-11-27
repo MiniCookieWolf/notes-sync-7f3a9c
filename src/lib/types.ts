@@ -9,6 +9,23 @@ export interface VideoRef {
   matchType: 'exact_timestamp' | 'topic_timestamp' | 'specialty_video';
 }
 
+export interface MateriSection {
+  heading: string;
+  bullets: string[];
+  skdi?: string;
+}
+
+export interface TopicDetail {
+  id: string;
+  specialty: string;
+  title: string;
+  skdi: string;
+  sections: MateriSection[];
+  mnemonics: string[];
+  slideImages: string[];
+  sourceFile: string;
+}
+
 export interface Question {
   id: string;
   specialty: string;
@@ -24,6 +41,10 @@ export interface Question {
   rationale: string;
   optionRationales: Record<string, string>;
   materiSummary: string;
+  materiSections?: MateriSection[];
+  mnemonics?: string[];
+  explanationImages?: string[];
+  topicId?: string;
   keywords: string[];
   image?: string | null;
   alsoIn?: string[];

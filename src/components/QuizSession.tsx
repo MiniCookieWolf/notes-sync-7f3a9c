@@ -5,22 +5,21 @@ import {
   Bookmark,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Eye,
   Flame,
   Flag,
   Grid,
   Lightbulb,
-  MessageSquarePlus,
-  PlayCircle,
   Sparkles,
   X,
   XCircle,
   ZoomIn,
 } from 'lucide-react';
+import { loadSpecialtyTopics } from '../lib/dataLoader';
 import { triggerHaptic } from '../lib/motivation';
 import type { SRSRating } from '../lib/srs';
-import type { QuizSessionConfig, SpecialtyMeta, UserProgress } from '../lib/types';
+import type { QuizSessionConfig, SpecialtyMeta, TopicDetail, UserProgress } from '../lib/types';
+import { PembahasanCard } from './PembahasanCard';
 
 interface QuizSessionProps {
   config: QuizSessionConfig;
@@ -56,12 +55,11 @@ export function QuizSession({
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [showNavGrid, setShowNavGrid] = useState(false);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState('');
-  const [showNoteBox, setShowNoteBox] = useState(false);
   const [ratedByIdx, setRatedByIdx] = useState<Record<number, SRSRating>>({});
   const [cbtSubmitted, setCbtSubmitted] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(config.timeLimitSec || 0);
   const [questionStartMs, setQuestionStartMs] = useState(Date.now());
+  const [topicsBySpec, setTopicsBySpec] = useState<Record<string, Record<string, TopicDetail>>>({});
 
   const dark = progress.settings.darkMode;
   const specMap = useMemo(() => Object.fromEntries(specialties.map((s) => [s.id, s])), [specialties]);
@@ -71,10 +69,13 @@ export function QuizSession({
   useEffect(() => {
     setOptionsUnlocked(!config.activeRecallFirst || Boolean(revealedByIdx[idx]) || cbtSubmitted);
     setShowKeywords(progress.settings.showKeywordsHint);
-    setNoteDraft(q ? progress.notes[q.id] || '' : '');
-    setShowNoteBox(false);
     setQuestionStartMs(Date.now());
-  }, [idx, q?.id, config.activeRecallFirst, cbtSubmitted]);
+    if (q?.topicId && !topicsBySpec[q.specialty]) {
+      loadSpecialtyTopics(q.specialty).then((map) => {
+        setTopicsBySpec((prev) => ({ ...prev, [q.specialty]: map }));
+      });
+    }
+  }, [idx, q?.id, q?.specialty, q?.topicId, config.activeRecallFirst, cbtSubmitted]);
 
   useEffect(() => {
     if (config.mode !== 'cbt' || cbtSubmitted || !config.timeLimitSec) return;
@@ -475,176 +476,18 @@ export function QuizSession({
 
         {/* Rich Pembahasan + Video Timestamp Card */}
         {isRevealed && (
-          <section
-            className={`space-y-3 rounded-2xl border p-4 ${
-              dark ? 'border-slate-800 bg-slate-900/95' : 'border-slate-200 bg-white'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-extrabold uppercase tracking-wider text-emerald-400">
-                Pembahasan & Bahan Terkait
-              </h4>
-              {q.answerVerified && (
-                <span className="rounded-lg bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-400">
-                  Kunci: {q.answer}
-                </span>
-              )}
-            </div>
-
-            {q.rationale && (
-              <div className="rounded-xl bg-slate-800/40 p-3 text-xs leading-relaxed text-slate-200">
-                {q.rationale}
-              </div>
-            )}
-
-            {q.optionRationales && Object.keys(q.optionRationales).length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold uppercase text-slate-400">Analisis Opsi:</p>
-                {(['A', 'B', 'C', 'D', 'E'] as const)
-                  .filter((l) => q.optionRationales[l])
-                  .map((l) => (
-                    <div
-                      key={l}
-                      className={`rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                        q.answer === l
-                          ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20'
-                          : 'bg-slate-800/30 text-slate-300'
-                      }`}
-                    >
-                      <span className="font-bold mr-1.5">{l}.</span>
-                      {q.optionRationales[l]}
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            {q.materiSummary && (
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
-                <p className="text-[11px] font-bold uppercase text-amber-400 mb-1">
-                  Ringkasan Slide / Jembatan Keledai Mediko
-                </p>
-                <p className="text-xs leading-relaxed text-amber-100/90">{q.materiSummary}</p>
-              </div>
-            )}
-
-            {/* Video Timestamp Links */}
-            {q.videos && q.videos.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <p className="text-[11px] font-bold uppercase text-rose-400 flex items-center gap-1.5">
-                  <PlayCircle className="h-3.5 w-3.5" />
-                  Link Video & Timestamp Pembahasan
-                </p>
-                {q.videos.map((v, vi) => (
-                  <a
-                    key={vi}
-                    href={v.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-col gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 transition hover:bg-rose-500/20 active:scale-[0.99]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-rose-200 truncate">{v.title}</p>
-                        <p className="text-[10px] text-rose-300/75 truncate">{v.playlist}</p>
-                      </div>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-extrabold text-white">
-                        ▶ {v.timestamp}
-                        <ExternalLink className="h-3 w-3" />
-                      </span>
-                    </div>
-                    {v.snippet && (
-                      <p className="text-[11px] italic text-slate-300/90 line-clamp-2">
-                        "{v.snippet}"
-                      </p>
-                    )}
-                  </a>
-                ))}
-              </div>
-            )}
-
-            <p className="text-[10px] text-slate-500">Sumber: {q.sourceFile}</p>
-
-            {/* Personal Note */}
-            <div>
-              {!showNoteBox ? (
-                <button
-                  onClick={() => setShowNoteBox(true)}
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-400"
-                >
-                  <MessageSquarePlus className="h-3.5 w-3.5" />
-                  {progress.notes[q.id] ? 'Edit Catatan Pribadi' : 'Tambah Catatan / Mnemonic Sendiri'}
-                </button>
-              ) : (
-                <div className="space-y-2 pt-1">
-                  <textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder="Tulis jembatan keledai atau catatan klinis pribadimu..."
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none"
-                    rows={2}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowNoteBox(false)}
-                      className="rounded-lg px-3 py-1 text-xs text-slate-400"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      onClick={() => {
-                        onSaveNote(q.id, noteDraft);
-                        setShowNoteBox(false);
-                      }}
-                      className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-bold text-white"
-                    >
-                      Simpan Catatan
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Spaced Repetition Confidence Buttons */}
-            {config.mode !== 'cbt' && (
-              <div className="border-t border-slate-800 pt-3">
-                <p className="mb-2 text-[11px] font-semibold text-slate-400">
-                  Jadwalkan Ulang Memori (Active Recall SRS):
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleManualRating('again')}
-                    className={`rounded-xl border py-2 text-xs font-bold ${
-                      ratedByIdx[idx] === 'again'
-                        ? 'border-rose-500 bg-rose-500/25 text-rose-200'
-                        : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                    }`}
-                  >
-                    Ulangi Besok
-                  </button>
-                  <button
-                    onClick={() => handleManualRating('hard')}
-                    className={`rounded-xl border py-2 text-xs font-bold ${
-                      ratedByIdx[idx] === 'hard'
-                        ? 'border-amber-500 bg-amber-500/25 text-amber-200'
-                        : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                    }`}
-                  >
-                    Masih Ragu
-                  </button>
-                  <button
-                    onClick={() => handleManualRating('easy')}
-                    className={`rounded-xl border py-2 text-xs font-bold ${
-                      ratedByIdx[idx] === 'easy'
-                        ? 'border-emerald-500 bg-emerald-500/25 text-emerald-200'
-                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                    }`}
-                  >
-                    Paham Banget
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
+          <PembahasanCard
+            q={q}
+            chosen={chosen}
+            topic={q.topicId ? topicsBySpec[q.specialty]?.[q.topicId] : null}
+            dark={dark}
+            mode={config.mode}
+            rated={ratedByIdx[idx]}
+            savedNote={progress.notes[q.id] || ''}
+            onRate={handleManualRating}
+            onSaveNote={(note) => onSaveNote(q.id, note)}
+            onZoomImage={(url) => setZoomImage(url)}
+          />
         )}
       </main>
 

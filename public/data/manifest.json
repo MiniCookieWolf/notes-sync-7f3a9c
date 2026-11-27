@@ -1,12 +1,13 @@
 {
-  "generatedAt": "2026-11-26",
-  "totalQuestions": 4460,
-  "verifiedQuestions": 3898,
-  "timestampedQuestions": 4460,
-  "exactTimestampQuestions": 4460,
-  "totalFlashcards": 961,
-  "totalVideos": 138,
-  "totalPlaylists": 12,
+  "generatedAt": "2026-11-27",
+  "totalQuestions": 4610,
+  "verifiedQuestions": 4048,
+  "timestampedQuestions": 4610,
+  "topicLinkedQuestions": 4587,
+  "totalFlashcards": 940,
+  "totalTopics": 940,
+  "totalVideos": 144,
+  "totalPlaylists": 14,
   "specialties": [
     {
       "id": "bedah",
@@ -14,10 +15,11 @@
       "shortName": "Bedah",
       "weight": 10,
       "color": "#ef4444",
-      "questionCount": 432,
-      "verifiedCount": 373,
-      "timestampedCount": 432,
-      "flashcardCount": 61
+      "questionCount": 436,
+      "verifiedCount": 377,
+      "timestampedCount": 436,
+      "flashcardCount": 65,
+      "topicCount": 65
     },
     {
       "id": "kardiologi",
@@ -25,10 +27,11 @@
       "shortName": "Kardio",
       "weight": 7,
       "color": "#f43f5e",
-      "questionCount": 330,
-      "verifiedCount": 310,
-      "timestampedCount": 330,
-      "flashcardCount": 71
+      "questionCount": 340,
+      "verifiedCount": 320,
+      "timestampedCount": 340,
+      "flashcardCount": 63,
+      "topicCount": 63
     },
     {
       "id": "pulmonologi",
@@ -36,10 +39,11 @@
       "shortName": "Pulmo",
       "weight": 7,
       "color": "#0ea5e9",
-      "questionCount": 183,
-      "verifiedCount": 173,
-      "timestampedCount": 183,
-      "flashcardCount": 40
+      "questionCount": 191,
+      "verifiedCount": 181,
+      "timestampedCount": 191,
+      "flashcardCount": 37,
+      "topicCount": 37
     },
     {
       "id": "geh",
@@ -47,10 +51,11 @@
       "shortName": "GEH",
       "weight": 7,
       "color": "#f59e0b",
-      "questionCount": 304,
-      "verifiedCount": 265,
-      "timestampedCount": 304,
-      "flashcardCount": 34
+      "questionCount": 312,
+      "verifiedCount": 273,
+      "timestampedCount": 312,
+      "flashcardCount": 35,
+      "topicCount": 35
     },
     {
       "id": "endokrin",
@@ -58,10 +63,11 @@
       "shortName": "Endokrin",
       "weight": 6,
       "color": "#eab308",
-      "questionCount": 81,
-      "verifiedCount": 52,
-      "timestampedCount": 81,
-      "flashcardCount": 35
+      "questionCount": 89,
+      "verifiedCount": 60,
+      "timestampedCount": 89,
+      "flashcardCount": 35,
+      "topicCount": 35
     },
     {
       "id": "nefrologi",
@@ -69,10 +75,11 @@
       "shortName": "Nefro",
       "weight": 5,
       "color": "#06b6d4",
-      "questionCount": 162,
-      "verifiedCount": 147,
-      "timestampedCount": 162,
-      "flashcardCount": 39
+      "questionCount": 170,
+      "verifiedCount": 155,
+      "timestampedCount": 170,
+      "flashcardCount": 35,
+      "topicCount": 35
     },
     {
       "id": "hematologi",
@@ -80,10 +87,11 @@
       "shortName": "Hemato",
       "weight": 5,
       "color": "#ec4899",
-      "questionCount": 342,
-      "verifiedCount": 325,
-      "timestampedCount": 342,
-      "flashcardCount": 55
+      "questionCount": 352,
+      "verifiedCount": 335,
+      "timestampedCount": 352,
+      "flashcardCount": 59,
+      "topicCount": 59
     },
     {
       "id": "infeksi",
@@ -91,10 +99,11 @@
       "shortName": "Infeksi",
       "weight": 7,
       "color": "#10b981",
-      "questionCount": 141,
-      "verifiedCount": 123,
-      "timestampedCount": 141,
-      "flashcardCount": 32
+      "questionCount": 150,
+      "verifiedCount": 132,
+      "timestampedCount": 150,
+      "flashcardCount": 35,
+      "topicCount": 35
     },
     {
       "id": "neurologi",
@@ -102,10 +111,11 @@
       "shortName": "Neuro",
       "weight": 7,
       "color": "#8b5cf6",
-      "questionCount": 323,
-      "verifiedCount": 290,
-      "timestampedCount": 323,
-      "flashcardCount": 76
+      "questionCount": 332,
+      "verifiedCount": 299,
+      "timestampedCount": 332,
+      "flashcardCount": 65,
+      "topicCount": 65
     },
     {
       "id": "psikiatri",
@@ -113,10 +123,11 @@
       "shortName": "Psikiatri",
       "weight": 5,
       "color": "#a855f7",
-      "questionCount": 144,
-      "verifiedCount": 109,
-      "timestampedCount": 144,
-      "flashcardCount": 79
+      "questionCount": 156,
+      "verifiedCount": 121,
+      "timestampedCount": 156,
+      "flashcardCount": 61,
+      "topicCount": 61
     },
     {
       "id": "obgyn",
@@ -124,10 +135,11 @@
       "shortName": "Obgyn",
       "weight": 9,
       "color": "#f472b6",
-      "questionCount": 337,
-      "verifiedCount": 292,
-      "timestampedCount": 337,
-      "flashcardCount": 58
+      "questionCount": 344,
+      "verifiedCount": 299,
+      "timestampedCount": 344,
+      "flashcardCount": 65,
+      "topicCount": 65
     },
     {
       "id": "pediatri",
@@ -135,10 +147,11 @@
       "shortName": "Pediatri",
       "weight": 9,
       "color": "#38bdf8",
-      "questionCount": 111,
-      "verifiedCount": 96,
-      "timestampedCount": 111,
-      "flashcardCount": 77
+      "questionCount": 121,
+      "verifiedCount": 106,
+      "timestampedCount": 121,
+      "flashcardCount": 65,
+      "topicCount": 65
     },
     {
       "id": "mata",
@@ -146,10 +159,11 @@
       "shortName": "Mata",
       "weight": 4,
       "color": "#14b8a6",
-      "questionCount": 305,
-      "verifiedCount": 262,
-      "timestampedCount": 305,
-      "flashcardCount": 66
+      "questionCount": 314,
+      "verifiedCount": 271,
+      "timestampedCount": 314,
+      "flashcardCount": 64,
+      "topicCount": 64
     },
     {
       "id": "tht",
@@ -157,10 +171,11 @@
       "shortName": "THT",
       "weight": 4,
       "color": "#2dd4bf",
-      "questionCount": 254,
-      "verifiedCount": 215,
-      "timestampedCount": 254,
-      "flashcardCount": 58
+      "questionCount": 262,
+      "verifiedCount": 223,
+      "timestampedCount": 262,
+      "flashcardCount": 68,
+      "topicCount": 68
     },
     {
       "id": "integumen",
@@ -168,10 +183,11 @@
       "shortName": "Kulit/DV",
       "weight": 5,
       "color": "#fb923c",
-      "questionCount": 343,
-      "verifiedCount": 291,
-      "timestampedCount": 343,
-      "flashcardCount": 60
+      "questionCount": 351,
+      "verifiedCount": 299,
+      "timestampedCount": 351,
+      "flashcardCount": 64,
+      "topicCount": 64
     },
     {
       "id": "muskuloskeletal",
@@ -179,10 +195,11 @@
       "shortName": "Muskulo",
       "weight": 4,
       "color": "#f97316",
-      "questionCount": 136,
-      "verifiedCount": 136,
-      "timestampedCount": 136,
-      "flashcardCount": 32
+      "questionCount": 141,
+      "verifiedCount": 141,
+      "timestampedCount": 141,
+      "flashcardCount": 36,
+      "topicCount": 36
     },
     {
       "id": "ikm",
@@ -190,10 +207,11 @@
       "shortName": "IKM/SKN",
       "weight": 6,
       "color": "#64748b",
-      "questionCount": 396,
-      "verifiedCount": 341,
-      "timestampedCount": 396,
-      "flashcardCount": 54
+      "questionCount": 404,
+      "verifiedCount": 349,
+      "timestampedCount": 404,
+      "flashcardCount": 53,
+      "topicCount": 53
     },
     {
       "id": "forensik",
@@ -201,10 +219,11 @@
       "shortName": "Forensik",
       "weight": 3,
       "color": "#94a3b8",
-      "questionCount": 136,
-      "verifiedCount": 98,
-      "timestampedCount": 136,
-      "flashcardCount": 34
+      "questionCount": 145,
+      "verifiedCount": 107,
+      "timestampedCount": 145,
+      "flashcardCount": 35,
+      "topicCount": 35
     }
   ]
 }

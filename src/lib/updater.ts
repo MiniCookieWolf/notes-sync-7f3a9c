@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 export const UPDATE_API_URL =
   'https://api.github.com/repos/MiniCookieWolf/notes-sync-7f3a9c/releases/latest';
 

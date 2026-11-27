@@ -1,4 +1,4 @@
-import type { Flashcard, ManifestData, Question, VideosIndexData } from './types';
+import type { Flashcard, ManifestData, Question, TopicDetail, VideosIndexData } from './types';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -6,6 +6,7 @@ let manifestCache: ManifestData | null = null;
 let videosCache: VideosIndexData | null = null;
 const questionsCache = new Map<string, Question[]>();
 const flashcardsCache = new Map<string, Flashcard[]>();
+const topicsCache = new Map<string, Record<string, TopicDetail>>();
 
 async function fetchJSON<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -41,6 +42,20 @@ export async function loadSpecialtyFlashcards(specialty: string): Promise<Flashc
   return data;
 }
 
+export async function loadSpecialtyTopics(specialty: string): Promise<Record<string, TopicDetail>> {
+  const existing = topicsCache.get(specialty);
+  if (existing) return existing;
+  try {
+    const list = await fetchJSON<TopicDetail[]>(`${BASE}data/topics/${specialty}.json`);
+    const map: Record<string, TopicDetail> = {};
+    for (const tp of list) map[tp.id] = tp;
+    topicsCache.set(specialty, map);
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export async function loadAllQuestions(specialties: string[]): Promise<Question[]> {
   const chunks = await Promise.all(specialties.map((s) => loadSpecialtyQuestions(s)));
   return chunks.flat();
@@ -72,14 +87,18 @@ export async function prefetchAllOfflineData(
     qCount += qs.length;
     for (const q of qs) {
       if (q.image) imgUrls.add(`${BASE}${q.image.replace(/^\/+/, '')}`);
+      for (const ei of q.explanationImages || []) {
+        imgUrls.add(`${BASE}${ei.replace(/^\/+/, '')}`);
+      }
     }
     done += 1;
     onProgress?.(done, totalSteps, `Bank soal ${s}`);
 
     const fcs = await loadSpecialtyFlashcards(s);
     fcCount += fcs.length;
+    await loadSpecialtyTopics(s);
     done += 1;
-    onProgress?.(done, totalSteps, `Flashcards ${s}`);
+    onProgress?.(done, totalSteps, `Flashcards & materi ${s}`);
   }
 
   // Warm cache for clinical images in small batches
