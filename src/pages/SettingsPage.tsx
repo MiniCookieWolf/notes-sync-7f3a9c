@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Download,
   Eye,
-  HardDrive,
   HardDriveDownload,
   KeyRound,
   Lightbulb,
@@ -29,7 +28,6 @@ import {
   getPwaState,
   getStorageInfo,
   isNativeApp,
-  requestPersistentStorage,
   subscribePwaState,
   triggerPwaInstall,
   type PwaState,
@@ -191,12 +189,6 @@ export function SettingsPage({
     } finally {
       setInstallingPwa(false);
     }
-  };
-
-  const handleRequestPersist = async () => {
-    await requestPersistentStorage();
-    const info = await getStorageInfo();
-    setStorageInfo(info);
   };
 
   const cardCls = `rounded-2xl border p-4 space-y-2 ${
@@ -514,38 +506,30 @@ export function SettingsPage({
         )}
       </section>
 
-      {/* Section 1: Backup & Pulihkan Save File */}
+      {/* Section 1: Save File & Backup Progress */}
       <section className={cardCls}>
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-            Backup &amp; Pulihkan Save File
+            Save File &amp; Backup Progress
           </p>
-          {storageInfo.persisted ? (
+          {storageInfo.persisted && (
             <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-              <ShieldCheck className="h-3 w-3" /> Penyimpanan Permanen Aktif
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-              <HardDrive className="h-3 w-3" /> Lokal HP
+              <ShieldCheck className="h-3 w-3" /> Penyimpanan Permanen
             </span>
           )}
         </div>
 
         <div
-          className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 ${
+          className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
             dark ? 'border-slate-800 bg-slate-950/70' : 'border-slate-200 bg-slate-50'
           }`}
         >
-          <span className="text-[11px] font-semibold text-slate-400 shrink-0">Nama User Save File:</span>
-          <input
-            type="text"
-            value={progress.settings.userName}
-            onChange={(e) => onUpdateSettings({ userName: e.target.value })}
-            placeholder="Dokter Pejuang"
-            className={`w-40 rounded-lg border px-2.5 py-1 text-xs font-bold text-right ${
-              dark ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900'
-            }`}
-          />
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+            <User className="h-3.5 w-3.5 text-cyan-400" /> Profil tersimpan:
+          </span>
+          <strong className={`truncate font-extrabold ${dark ? 'text-white' : 'text-slate-900'}`}>
+            {progress.settings.userName || 'Dokter Pejuang'}
+          </strong>
         </div>
 
         <div className="grid grid-cols-4 gap-1.5 text-center">
@@ -565,40 +549,29 @@ export function SettingsPage({
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
-          <span>
-            Backup terakhir:{' '}
-            <strong className={dark ? 'text-slate-200' : 'text-slate-700'}>
-              {lastBackupAt
-                ? new Date(lastBackupAt).toLocaleString('id-ID', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })
-                : 'Belum pernah backup save file'}
-            </strong>
-          </span>
-          {!storageInfo.persisted && (
-            <button
-              type="button"
-              onClick={handleRequestPersist}
-              className="shrink-0 text-[10px] font-bold text-cyan-400 underline"
-            >
-              Aktifkan Proteksi Data
-            </button>
-          )}
-        </div>
+        <p className="text-[11px] text-slate-400">
+          Backup terakhir:{' '}
+          <strong className={dark ? 'text-slate-200' : 'text-slate-700'}>
+            {lastBackupAt
+              ? new Date(lastBackupAt).toLocaleString('id-ID', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })
+              : 'Belum pernah'}
+          </strong>
+        </p>
 
-        <button
-          type="button"
-          onClick={handleShareBackup}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow active:scale-[0.99]"
-        >
-          <Share2 className="h-4 w-4" /> Share to Backup Save File (.json)
-        </button>
+        <div className="space-y-2 pt-0.5">
+          <button
+            type="button"
+            onClick={handleShareBackup}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow active:scale-[0.99]"
+          >
+            <Share2 className="h-4 w-4" /> Share to Backup Save File (.json)
+          </button>
 
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2 text-xs font-extrabold text-cyan-300">
-            <Upload className="h-3.5 w-3.5" /> Import Save File (.json)
+          <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-xs font-extrabold text-cyan-300 active:scale-[0.99]">
+            <Upload className="h-4 w-4" /> Import Save File (.json)
             <input
               type="file"
               accept=".json,application/json,text/plain"
@@ -606,14 +579,23 @@ export function SettingsPage({
               className="hidden"
             />
           </label>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 py-2 text-xs font-bold"
-          >
-            <Download className="h-3.5 w-3.5" /> Download Lokal (.json)
-          </button>
         </div>
+
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          File <code className="text-[10px]">.json</code> berisi seluruh progres belajar &amp; nama user. Kirim ke WA sendiri, Google Drive, atau simpan di HP.
+        </p>
+
+        {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="text-[11px] font-medium text-slate-400 underline hover:text-slate-200"
+            >
+              Atau simpan langsung ke folder Download
+            </button>
+          </div>
+        )}
 
         {pendingImport && (
           <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
@@ -667,36 +649,6 @@ export function SettingsPage({
             <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {backupErrorMsg}
           </p>
         )}
-
-        <div className="border-t border-slate-800/50 pt-2 space-y-2">
-          <button
-            disabled={offlineState === 'loading'}
-            onClick={handleDownloadOffline}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-xs font-extrabold text-cyan-300 disabled:opacity-60"
-          >
-            {offlineState === 'done' ? (
-              <>
-                <CheckCircle2 className="h-4 w-4" /> Tersimpan Offline ({manifest.totalQuestions.toLocaleString()} Soal)
-              </>
-            ) : offlineState === 'loading' ? (
-              'Menyimpan Data Offline...'
-            ) : (
-              <>
-                <HardDriveDownload className="h-4 w-4" /> Simpan Semua Data Offline Sekarang
-              </>
-            )}
-          </button>
-          {offlineMsg && <p className="text-[11px] text-emerald-300">{offlineMsg}</p>}
-
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-bold text-rose-400"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Reset Semua Progress Belajar
-          </button>
-          {resetDoneMsg && <p className="text-[11px] font-semibold text-emerald-400">{resetDoneMsg}</p>}
-        </div>
       </section>
 
       {/* Section 1: Mode Latihan & Soal */}
@@ -852,6 +804,47 @@ export function SettingsPage({
         >
           <Lock className="h-3.5 w-3.5" /> Kunci Layar Sekarang (Mode Samaran)
         </button>
+      </section>
+
+      {/* Section 4: Mode Offline & Reset Data */}
+      <section className={cardCls}>
+        <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+          Mode Offline &amp; Reset Data
+        </p>
+
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          Unduh seluruh bank soal, flashcard, &amp; gambar klinis ke memori HP agar bisa belajar tanpa internet.
+        </p>
+
+        <button
+          disabled={offlineState === 'loading'}
+          onClick={handleDownloadOffline}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-xs font-extrabold text-cyan-300 disabled:opacity-60"
+        >
+          {offlineState === 'done' ? (
+            <>
+              <CheckCircle2 className="h-4 w-4" /> Tersimpan Offline ({manifest.totalQuestions.toLocaleString()} Soal)
+            </>
+          ) : offlineState === 'loading' ? (
+            'Menyimpan Data Offline...'
+          ) : (
+            <>
+              <HardDriveDownload className="h-4 w-4" /> Simpan Bank Soal untuk Mode Offline
+            </>
+          )}
+        </button>
+        {offlineMsg && <p className="text-[11px] text-emerald-300">{offlineMsg}</p>}
+
+        <div className="border-t border-slate-800/50 pt-2 space-y-2">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-bold text-rose-400"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Reset Semua Progress Belajar
+          </button>
+          {resetDoneMsg && <p className="text-[11px] font-semibold text-emerald-400">{resetDoneMsg}</p>}
+        </div>
       </section>
 
       {/* 3-Step Reset Progress Confirmation Modal */}
