@@ -114,7 +114,7 @@ export function StatsPage({
         }`}
       >
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-          Akurasi Per Bidang Spesialis (Tap untuk Latihan)
+          Progres & Akurasi Per Bidang (Tap untuk Latihan)
         </h3>
         <div className="space-y-2">
           {manifest.specialties.map((s) => {
@@ -125,17 +125,19 @@ export function StatsPage({
                 onClick={() => onStartSpecialtyWeak(s.id)}
                 className="cursor-pointer space-y-1 rounded-xl p-1.5 hover:bg-slate-800/30"
               >
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-xs gap-2">
                   <span className="font-bold">{s.shortName}</span>
-                  <span className="text-slate-400">
-                    {st?.attempted ? `${st.accuracy}% (${st.correct}/${st.attempted})` : 'Belum latihan'}
+                  <span className="text-slate-400 text-[11px]">
+                    {st?.attempted
+                      ? `Progres ${st.uniqueSolved}/${s.questionCount} (${st.coveragePct}%) • Akurasi ${st.accuracy}%`
+                      : `0/${s.questionCount} soal (Belum latihan)`}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${st?.attempted ? st.accuracy : 0}%`,
+                      width: `${st?.coveragePct || 0}%`,
                       backgroundColor: s.color,
                     }}
                   />

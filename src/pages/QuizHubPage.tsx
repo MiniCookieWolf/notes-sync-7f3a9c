@@ -183,21 +183,36 @@ export function QuizHubPage({
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400">
-                        {s.questionCount} soal ({s.timestampedCount} ber-timestamp) • Bobot {s.weight}%
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {st?.uniqueSolved || 0}/{s.questionCount} soal dikerjakan • Bobot {s.weight}%
+                        </p>
+                        {st && st.attempted > 0 && (
+                          <span
+                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ${
+                              st.accuracy >= 75
+                                ? 'bg-emerald-500/15 text-emerald-400'
+                                : st.accuracy >= 65
+                                ? 'bg-amber-500/15 text-amber-400'
+                                : 'bg-rose-500/15 text-rose-400'
+                            }`}
+                          >
+                            Akurasi {st.accuracy}%
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1.5 flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
-                              width: `${st?.accuracy || 0}%`,
+                              width: `${st?.coveragePct || 0}%`,
                               backgroundColor: s.color,
                             }}
                           />
                         </div>
                         <span className="text-[10px] font-bold text-slate-400">
-                          {st?.attempted ? `${st.accuracy}%` : 'Belum'}
+                          {st?.uniqueSolved ? `${st.coveragePct}%` : '0%'}
                         </span>
                       </div>
                     </div>

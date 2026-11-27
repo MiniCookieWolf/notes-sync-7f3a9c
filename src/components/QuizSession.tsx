@@ -32,6 +32,12 @@ interface QuizSessionProps {
     rating: SRSRating,
     elapsedSec: number
   ) => void;
+  onAdjustSrsRating?: (
+    questionId: string,
+    specialty: string,
+    isCorrect: boolean,
+    rating: SRSRating
+  ) => void;
   onToggleBookmark: (questionId: string) => void;
   onSaveNote: (questionId: string, note: string) => void;
   onExit: (summary?: { answered: number; correct: number; bySpec: Record<string, { total: number; correct: number }> }) => void;
@@ -42,6 +48,7 @@ export function QuizSession({
   specialties,
   progress,
   onRecordAnswer,
+  onAdjustSrsRating,
   onToggleBookmark,
   onSaveNote,
   onExit,
@@ -140,9 +147,14 @@ export function QuizSession({
 
   const handleManualRating = (rating: SRSRating) => {
     const correct = q.answerVerified ? chosen === q.answer : rating !== 'again';
+    const alreadyRecorded = Boolean(revealedByIdx[idx]);
     setRatedByIdx((prev) => ({ ...prev, [idx]: rating }));
     triggerHaptic(progress.settings.haptics, 12);
-    onRecordAnswer(q.id, q.specialty, correct, rating, 15);
+    if (alreadyRecorded && onAdjustSrsRating) {
+      onAdjustSrsRating(q.id, q.specialty, correct, rating);
+    } else {
+      onRecordAnswer(q.id, q.specialty, correct, rating, 15);
+    }
     if (idx + 1 < questions.length) {
       setIdx(idx + 1);
     }

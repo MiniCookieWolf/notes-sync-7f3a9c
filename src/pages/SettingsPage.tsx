@@ -105,6 +105,8 @@ export function SettingsPage({
   const [dlProg, setDlProg] = useState<DownloadProgress | null>(null);
   const [needsPerm, setNeedsPerm] = useState(false);
   const [dlError, setDlError] = useState('');
+  const [resetStep, setResetStep] = useState<0 | 1 | 2 | 3>(0);
+  const [resetDoneMsg, setResetDoneMsg] = useState('');
 
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
@@ -190,8 +192,19 @@ export function SettingsPage({
   };
 
   const handleReset = () => {
-    if (window.confirm('Yakin reset seluruh XP, streak, riwayat SRS, dan catatan pribadi? Tindakan ini tidak bisa dibatalkan.')) {
+    setResetDoneMsg('');
+    setResetStep(1);
+  };
+
+  const handleConfirmResetStep = () => {
+    if (resetStep === 1) {
+      setResetStep(2);
+    } else if (resetStep === 2) {
+      setResetStep(3);
+    } else if (resetStep === 3) {
       onResetProgress();
+      setResetStep(0);
+      setResetDoneMsg('✅ Semua progres belajar berhasil di-reset ke awal!');
     }
   };
 
@@ -515,11 +528,68 @@ export function SettingsPage({
         <button
           type="button"
           onClick={handleReset}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-xs font-bold text-rose-400"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-bold text-rose-400"
         >
           <RotateCcw className="h-3.5 w-3.5" /> Reset Semua Progress Belajar
         </button>
+        {resetDoneMsg && <p className="text-[11px] font-semibold text-emerald-400">{resetDoneMsg}</p>}
       </section>
+
+      {/* 3-Step Reset Progress Confirmation Modal */}
+      {resetStep > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-xs space-y-4 rounded-3xl border p-5 text-center shadow-2xl ${
+              dark ? 'border-rose-500/40 bg-slate-900 text-slate-100' : 'border-rose-200 bg-white text-slate-900'
+            }`}
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">
+                Konfirmasi {resetStep} / 3
+              </p>
+              <h3 className="mt-1 text-base font-black">
+                {resetStep === 1
+                  ? 'Are you really sure?'
+                  : resetStep === 2
+                  ? 'Are you really really sure?'
+                  : 'Yakin pesan mau reset?'}
+              </h3>
+              <p className="mt-1.5 text-xs text-slate-400 leading-relaxed">
+                {resetStep === 1
+                  ? 'Semua progres belajar, XP, streak, dan jadwal SRS kamu akan dihapus.'
+                  : resetStep === 2
+                  ? 'Data yang terhapus tidak bisa kembali kecuali kamu sudah Export Backup JSON.'
+                  : 'Ini konfirmasi terakhir. Ketuk tombol merah di bawah untuk reset seluruh progres ke 0.'}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setResetStep(0)}
+                className={`rounded-xl border py-2.5 text-xs font-bold ${
+                  dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-300 bg-slate-100 text-slate-700'
+                }`}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetStep}
+                className="rounded-xl bg-rose-600 py-2.5 text-xs font-extrabold text-white shadow active:scale-[0.98]"
+              >
+                {resetStep === 1
+                  ? 'Ya, Lanjut'
+                  : resetStep === 2
+                  ? 'Really Sure!'
+                  : 'YA, RESET SEMUA'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

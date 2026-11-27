@@ -80,6 +80,8 @@ export interface SpecialtyStat {
   attempted: number;
   correct: number;
   accuracy: number;
+  uniqueSolved: number;
+  coveragePct: number;
   dueCount: number;
   weakScore: number; // higher = needs more attention
 }
@@ -96,6 +98,8 @@ export function computeSpecialtyStats(
       attempted: 0,
       correct: 0,
       accuracy: 0,
+      uniqueSolved: 0,
+      coveragePct: 0,
       dueCount: 0,
       weakScore: s.weight * 1.5, // prioritize high-weight specialties when unseen
     };
@@ -104,6 +108,7 @@ export function computeSpecialtyStats(
   for (const rec of Object.values(progress.srs)) {
     const st = out[rec.specialty];
     if (!st) continue;
+    st.uniqueSolved += 1;
     st.attempted += rec.attempts;
     st.correct += rec.correctCount;
     if (rec.dueDate <= today) st.dueCount += 1;
@@ -111,6 +116,7 @@ export function computeSpecialtyStats(
 
   for (const s of specialties) {
     const st = out[s.id];
+    st.coveragePct = s.questionCount > 0 ? Math.min(100, Math.round((st.uniqueSolved / s.questionCount) * 100)) : 0;
     if (st.attempted > 0) {
       st.accuracy = Math.round((st.correct / st.attempted) * 100);
       // Higher weakScore for low accuracy, high exam weight, and due items

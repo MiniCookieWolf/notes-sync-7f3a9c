@@ -152,6 +152,27 @@ export default function App() {
     });
   };
 
+  const handleAdjustSrsRating = (
+    questionId: string,
+    specialty: string,
+    isCorrect: boolean,
+    rating: SRSRating
+  ) => {
+    setProgress((prev) => {
+      const prevRec = prev.srs[questionId];
+      const nextRec = updateSRSRecord(prevRec, questionId, specialty, rating, isCorrect);
+      if (prevRec) {
+        // Keep attempt/correct counters from the initial answer event; only adjust SRS schedule
+        nextRec.attempts = prevRec.attempts;
+        nextRec.correctCount = prevRec.correctCount;
+      }
+      return {
+        ...prev,
+        srs: { ...prev.srs, [questionId]: nextRec },
+      };
+    });
+  };
+
   const handleRateFlashcard = (fc: Flashcard, easy: boolean) => {
     const today = todayISO();
     setProgress((prev) => {
@@ -408,6 +429,7 @@ export default function App() {
         specialties={manifest.specialties}
         progress={progress}
         onRecordAnswer={handleRecordAnswer}
+        onAdjustSrsRating={handleAdjustSrsRating}
         onToggleBookmark={(id) =>
           setProgress((p) => ({
             ...p,
