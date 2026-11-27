@@ -51,10 +51,10 @@ jobs:
             echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$HOME/.android/debug.keystore"
           fi
 
-      - name: Generate Android project and apply native updater plugin
+      - name: Generate Android project and patch version
         run: |
           npx cap add android
-          python3 scripts/patch_android.py
+          python3 scripts/patch_android.py "$APP_VERSION"
           npx cap sync android
 
       - name: Build Debug APK
@@ -73,7 +73,7 @@ jobs:
           meta = {
               "version": ver,
               "downloadUrl": f"https://github.com/MiniCookieWolf/notes-sync-7f3a9c/releases/download/v{ver}/StudyPro-v{ver}.apk",
-              "notes": f"Pembaruan Study Pro v{ver} — tombol Back Android kembali ke menu sebelumnya & opsi A–E langsung tampil secara default.",
+              "notes": f"Pembaruan Study Pro v{ver} — unduh update APK langsung via browser untuk pemasangan yang lebih stabil.",
               "publishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
           }
           with open("version.json", "w", encoding="utf-8") as f:
@@ -96,4 +96,4 @@ jobs:
           git push origin ":refs/tags/${TAG}" || true
           gh release create "$TAG" "StudyPro-v${APP_VERSION}.apk" "StudyPro-latest.apk" version.json \
             --title "Study Pro ${TAG}" \
-            --notes "Pembaruan aplikasi Study Pro ${TAG}. Gunakan tombol Update di dalam aplikasi untuk pasang otomatis tanpa browser."
+            --notes "Pembaruan aplikasi Study Pro ${TAG}. Unduh file APK dan install pembaruan di perangkat Anda."

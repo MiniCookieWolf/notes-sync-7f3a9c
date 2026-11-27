@@ -1,193 +1,110 @@
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+export const APP_VERSION = '1.3.3';
 
-export const APP_VERSION = '1.3.2';
-export const VERSION_JSON_URL =
-  'https://github.com/MiniCookieWolf/notes-sync-7f3a9c/releases/latest/download/version.json';
-export const UPDATE_API_URL =
-  'https://api.github.com/repos/MiniCookieWolf/notes-sync-7f3a9c/releases/latest';
+// Stealth public repo storing Releases & latest APK metadata
+export const UPDATE_REPO = 'MiniCookieWolf/notes-sync-7f3a9c';
+const GITHUB_API_LATEST = `https://api.github.com/repos/${UPDATE_REPO}/releases/latest`;
+const LAST_CHECK_KEY = 'studypro_last_update_check_v1';
 
-const LAST_CHECK_KEY = 'ws_last_update_check_v1';
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
-export interface DownloadProgress {
-  percent: number;
-  downloadedMb: number;
-  totalMb: number;
-}
-
-interface AppUpdaterPlugin {
-  checkLatestVersion(opts: { url: string }): Promise<{ status: number; raw: string }>;
-  downloadAndInstall(opts: { url: string }): Promise<{ status: 'installing' | 'needs_permission' }>;
-  installCachedApk(): Promise<{ status: 'installing' | 'needs_permission' }>;
-  addListener(
-    eventName: 'downloadProgress',
-    listenerFunc: (info: DownloadProgress) => void
-  ): Promise<PluginListenerHandle>;
-}
-
-const AppUpdater = registerPlugin<AppUpdaterPlugin>('AppUpdater');
-
-export function isNativeAndroid(): boolean {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-}
+export type UpdateStatus = 'up_to_date' | 'update_available' | 'error';
 
 export interface UpdateCheckResult {
-  status: 'update_available' | 'up_to_date' | 'error';
+  status: UpdateStatus;
   currentVersion: string;
-  latestVersion: string;
-  downloadUrl: string;
-  releaseUrl: string;
-  notes: string;
-  publishedAt: string;
-  errorMessage?: string;
+  latestVersion?: string;
+  downloadUrl?: string;
+  releaseUrl?: string;
+  notes?: string;
+  checkedAt: number;
+  error?: string;
 }
 
-export function compareSemver(a: string, b: string): number {
-  const pa = a.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
-  const pb = b.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
-  const len = Math.max(pa.length, pb.length, 3);
+export function compareVersions(a: string, b: string): number {
+  const clean = (v: string) =>
+    v
+      .replace(/^v/i, '')
+      .split('-')[0]
+      .split('.')
+      .map((n) => parseInt(n, 10) || 0);
+  const pa = clean(a);
+  const pb = clean(b);
+  const len = Math.max(pa.length, pb.length);
   for (let i = 0; i < len; i++) {
-    const va = pa[i] || 0;
-    const vb = pb[i] || 0;
-    if (va > vb) return 1;
-    if (va < vb) return -1;
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da > db) return 1;
+    if (da < db) return -1;
   }
   return 0;
 }
 
-export function shouldAutoCheck(): boolean {
+export function shouldAutoCheck(autoEnabled: boolean): boolean {
+  if (!autoEnabled) return false;
   try {
     const raw = localStorage.getItem(LAST_CHECK_KEY);
     if (!raw) return true;
     const last = Number(raw);
-    return !Number.isFinite(last) || Date.now() - last > CHECK_INTERVAL_MS;
+    return Date.now() - last > 6 * 60 * 60 * 1000; // check at most every 6h automatically
   } catch {
     return true;
   }
 }
 
 export async function checkForAppUpdate(): Promise<UpdateCheckResult> {
+  const checkedAt = Date.now();
   try {
-    localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+    localStorage.setItem(LAST_CHECK_KEY, String(checkedAt));
   } catch {
-    // ignore
-  }
-
-  // Primary path on native Android: fetch version.json via native HTTP (zero CORS, zero API rate limit)
-  if (isNativeAndroid()) {
-    try {
-      const resp = await AppUpdater.checkLatestVersion({ url: VERSION_JSON_URL });
-      if (resp.status >= 200 && resp.status < 300 && resp.raw) {
-        const meta = JSON.parse(resp.raw) as {
-          version?: string;
-          downloadUrl?: string;
-          notes?: string;
-          publishedAt?: string;
-        };
-        const latestRaw = (meta.version || APP_VERSION).replace(/^v/i, '');
-        const cmp = compareSemver(latestRaw, APP_VERSION);
-        return {
-          status: cmp > 0 ? 'update_available' : 'up_to_date',
-          currentVersion: APP_VERSION,
-          latestVersion: latestRaw,
-          downloadUrl: meta.downloadUrl || '',
-          releaseUrl: meta.downloadUrl || '',
-          notes: meta.notes || '',
-          publishedAt: meta.publishedAt || '',
-        };
-      }
-    } catch {
-      // Fall through to GitHub API fallback
-    }
+    // ignore storage errors
   }
 
   try {
-    const res = await fetch(UPDATE_API_URL, {
-      cache: 'no-store',
+    const res = await fetch(GITHUB_API_LATEST, {
       headers: { Accept: 'application/vnd.github+json' },
+      cache: 'no-store',
     });
+
     if (!res.ok) {
       return {
         status: 'error',
         currentVersion: APP_VERSION,
-        latestVersion: APP_VERSION,
-        downloadUrl: '',
-        releaseUrl: '',
-        notes: '',
-        publishedAt: '',
-        errorMessage: `Gagal memeriksa update (HTTP ${res.status})`,
+        checkedAt,
+        error: `HTTP ${res.status}`,
       };
     }
 
-    const data = (await res.json()) as {
-      tag_name?: string;
-      html_url?: string;
-      body?: string;
-      published_at?: string;
-      assets?: Array<{ name?: string; browser_download_url?: string }>;
-    };
+    const data = await res.json();
+    const rawTag: string = data.tag_name || data.name || '';
+    const latestVersion = rawTag.replace(/^v/i, '').trim() || APP_VERSION;
 
-    const latestRaw = (data.tag_name || APP_VERSION).replace(/^v/i, '');
-    const apkAsset = (data.assets || []).find((a) =>
-      (a.name || '').toLowerCase().endsWith('.apk')
-    );
-    const downloadUrl = apkAsset?.browser_download_url || data.html_url || '';
-    const releaseUrl = data.html_url || downloadUrl;
-    const cmp = compareSemver(latestRaw, APP_VERSION);
+    const assets: Array<{ name?: string; browser_download_url?: string }> = Array.isArray(data.assets)
+      ? data.assets
+      : [];
+    const apkAsset =
+      assets.find((a) => typeof a.name === 'string' && /^StudyPro-v.*\.apk$/i.test(a.name)) ??
+      assets.find((a) => typeof a.name === 'string' && a.name.toLowerCase().endsWith('.apk'));
+
+    const downloadUrl: string =
+      apkAsset?.browser_download_url ||
+      data.html_url ||
+      `https://github.com/${UPDATE_REPO}/releases/latest`;
+
+    const isNewer = compareVersions(latestVersion, APP_VERSION) > 0;
 
     return {
-      status: cmp > 0 ? 'update_available' : 'up_to_date',
+      status: isNewer ? 'update_available' : 'up_to_date',
       currentVersion: APP_VERSION,
-      latestVersion: latestRaw,
+      latestVersion,
       downloadUrl,
-      releaseUrl,
-      notes: data.body || '',
-      publishedAt: data.published_at || '',
+      releaseUrl: data.html_url,
+      notes: typeof data.body === 'string' ? data.body : '',
+      checkedAt,
     };
-  } catch {
+  } catch (err) {
     return {
       status: 'error',
       currentVersion: APP_VERSION,
-      latestVersion: APP_VERSION,
-      downloadUrl: '',
-      releaseUrl: '',
-      notes: '',
-      publishedAt: '',
-      errorMessage: 'Tidak dapat terhubung ke server update (cek koneksi internet).',
+      checkedAt,
+      error: err instanceof Error ? err.message : 'Gagal menghubungi server update',
     };
-  }
-}
-
-export async function startInAppUpdate(
-  downloadUrl: string,
-  onProgress: (prog: DownloadProgress) => void
-): Promise<{ status: 'installing' | 'needs_permission' | 'browser_fallback' | 'error'; error?: string }> {
-  if (!isNativeAndroid()) {
-    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-    return { status: 'browser_fallback' };
-  }
-  let handle: PluginListenerHandle | null = null;
-  try {
-    handle = await AppUpdater.addListener('downloadProgress', onProgress);
-    const res = await AppUpdater.downloadAndInstall({ url: downloadUrl });
-    return { status: res.status };
-  } catch (err) {
-    return { status: 'error', error: err instanceof Error ? err.message : String(err) };
-  } finally {
-    if (handle) {
-      await handle.remove().catch(() => {});
-    }
-  }
-}
-
-export async function retryInstallCachedApk(): Promise<{
-  status: 'installing' | 'needs_permission' | 'error';
-  error?: string;
-}> {
-  try {
-    const res = await AppUpdater.installCachedApk();
-    return { status: res.status };
-  } catch (err) {
-    return { status: 'error', error: err instanceof Error ? err.message : String(err) };
   }
 }
