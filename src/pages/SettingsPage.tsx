@@ -20,7 +20,14 @@ import {
 } from 'lucide-react';
 import { prefetchAllOfflineData } from '../lib/dataLoader';
 import { exportProgressJSON, importProgressJSON } from '../lib/storage';
-import { APP_VERSION, checkForAppUpdate, type UpdateCheckResult } from '../lib/updater';
+import {
+  APP_VERSION,
+  checkForAppUpdate,
+  retryInstallCachedApk,
+  startInAppUpdate,
+  type DownloadProgress,
+  type UpdateCheckResult,
+} from '../lib/updater';
 import type { ManifestData, UserProgress } from '../lib/types';
 
 interface SettingsPageProps {
@@ -95,14 +102,31 @@ export function SettingsPage({
   const [offlineMsg, setOfflineMsg] = useState('');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [dlProg, setDlProg] = useState<DownloadProgress | null>(null);
+  const [needsPerm, setNeedsPerm] = useState(false);
+  const [dlError, setDlError] = useState('');
 
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
+    setDlError('');
     try {
       const res = await checkForAppUpdate();
       setUpdateResult(res);
     } finally {
       setCheckingUpdate(false);
+    }
+  };
+
+  const handleInAppInstall = async (url: string) => {
+    setDlError('');
+    setNeedsPerm(false);
+    setDlProg({ percent: 0, downloadedMb: 0, totalMb: 0 });
+    const res = await startInAppUpdate(url, setDlProg);
+    setDlProg(null);
+    if (res.status === 'needs_permission') {
+      setNeedsPerm(true);
+    } else if (res.status === 'error') {
+      setDlError(res.error || 'Gagal mengunduh update.');
     }
   };
 
@@ -228,14 +252,48 @@ export function SettingsPage({
             {updateResult.notes && (
               <p className="text-[11px] text-slate-300 whitespace-pre-line">{updateResult.notes}</p>
             )}
-            <a
-              href={updateResult.downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow"
-            >
-              <Download className="h-4 w-4" /> Download & Install Update (.apk)
-            </a>
+            {needsPerm ? (
+              <div className="space-y-2">
+                <p className="text-[11px] text-amber-300">
+                  Aktifkan izin "Izinkan dari sumber ini" di Pengaturan Android, lalu ketuk tombol di bawah:
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await retryInstallCachedApk();
+                    if (res.status === 'installing') setNeedsPerm(false);
+                    else if (res.status === 'error') setDlError(res.error || 'Gagal memasang APK.');
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 shadow"
+                >
+                  <Download className="h-4 w-4" /> Pasang APK yang Sudah Diunduh
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={Boolean(dlProg)}
+                onClick={() => handleInAppInstall(updateResult.downloadUrl)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-extrabold text-white shadow disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {dlProg ? `Mengunduh... ${dlProg.percent}%` : 'Update Sekarang (In-App)'}
+              </button>
+            )}
+            {dlProg && (
+              <div className="space-y-1">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all"
+                    style={{ width: `${dlProg.percent}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-emerald-200 text-center">
+                  {dlProg.downloadedMb} {dlProg.totalMb ? `/ ${dlProg.totalMb}` : ''} MB
+                </p>
+              </div>
+            )}
+            {dlError && <p className="text-[11px] text-rose-300">{dlError}</p>}
           </div>
         )}
 
@@ -243,14 +301,14 @@ export function SettingsPage({
           <div className="mt-1 flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
             <span>✅ Aplikasi sudah versi terbaru (v{updateResult.currentVersion})</span>
             {updateResult.downloadUrl && (
-              <a
-                href={updateResult.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-[11px]"
+              <button
+                type="button"
+                disabled={Boolean(dlProg)}
+                onClick={() => handleInAppInstall(updateResult.downloadUrl)}
+                className="underline text-[11px] disabled:opacity-50"
               >
-                Unduh Ulang
-              </a>
+                Pasang Ulang
+              </button>
             )}
           </div>
         )}

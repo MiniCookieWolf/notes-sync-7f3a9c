@@ -48,21 +48,10 @@ jobs:
             echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$HOME/.android/debug.keystore"
           fi
 
-      - name: Generate Android project and patch version
+      - name: Generate Android project and apply native updater plugin
         run: |
           npx cap add android
-          python3 - <<'EOF'
-          import os, re
-          gradle_path = "android/app/build.gradle"
-          with open(gradle_path, "r", encoding="utf-8") as f:
-              txt = f.read()
-          run_num = os.environ.get("GITHUB_RUN_NUMBER", "1")
-          ver_name = os.environ.get("APP_VERSION", "1.1.0")
-          txt = re.sub(r"versionCode\s+\d+", f"versionCode {run_num}", txt)
-          txt = re.sub(r'versionName\s+"[^"]+"', f'versionName "{ver_name}"', txt)
-          with open(gradle_path, "w", encoding="utf-8") as f:
-              f.write(txt)
-          EOF
+          python3 scripts/patch_android.py
           npx cap sync android
 
       - name: Build Debug APK
@@ -71,6 +60,21 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk "../StudyPro-v${APP_VERSION}.apk"
+
+      - name: Generate version.json metadata
+        run: |
+          python3 - <<'EOF'
+          import json, os, datetime
+          ver = os.environ["APP_VERSION"]
+          meta = {
+              "version": ver,
+              "downloadUrl": f"https://github.com/MiniCookieWolf/notes-sync-7f3a9c/releases/download/v{ver}/StudyPro-v{ver}.apk",
+              "notes": f"Pembaruan Study Pro v{ver} — mendukung update langsung di dalam aplikasi.",
+              "publishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          with open("version.json", "w", encoding="utf-8") as f:
+              json.dump(meta, f, indent=2)
+          EOF
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -86,6 +90,6 @@ jobs:
           TAG="v${APP_VERSION}"
           gh release delete "$TAG" -y || true
           git push origin ":refs/tags/${TAG}" || true
-          gh release create "$TAG" "StudyPro-v${APP_VERSION}.apk" \
+          gh release create "$TAG" "StudyPro-v${APP_VERSION}.apk" version.json \
             --title "Study Pro ${TAG}" \
-            --notes "Pembaruan aplikasi Study Pro ${TAG}. Unduh dan pasang StudyPro-${TAG}.apk untuk update langsung tanpa menghapus progres belajar."
+            --notes "Pembaruan aplikasi Study Pro ${TAG}. Gunakan tombol Update di dalam aplikasi untuk pasang otomatis tanpa browser."

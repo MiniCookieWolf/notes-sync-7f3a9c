@@ -11,7 +11,14 @@ import {
   type SRSRating,
 } from './lib/srs';
 import { loadProgress, saveProgress, todayISO, defaultProgress } from './lib/storage';
-import { checkForAppUpdate, shouldAutoCheck, type UpdateCheckResult } from './lib/updater';
+import {
+  checkForAppUpdate,
+  retryInstallCachedApk,
+  shouldAutoCheck,
+  startInAppUpdate,
+  type DownloadProgress,
+  type UpdateCheckResult,
+} from './lib/updater';
 import type {
   Flashcard,
   ManifestData,
@@ -41,6 +48,9 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateCheckResult | null>(null);
+  const [bannerDlProg, setBannerDlProg] = useState<DownloadProgress | null>(null);
+  const [bannerNeedsPerm, setBannerNeedsPerm] = useState(false);
+  const [bannerErr, setBannerErr] = useState('');
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -479,30 +489,73 @@ export default function App() {
       {/* Main Content */}
       <main className="mx-auto max-w-lg px-4 pt-4">
         {availableUpdate && availableUpdate.status === 'update_available' && (
-          <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <ArrowUpCircle className="h-4 w-4 shrink-0 text-emerald-400" />
-              <span className="font-bold text-emerald-200 truncate">
-                Update APK v{availableUpdate.latestVersion} tersedia!
-              </span>
+          <div className="mb-4 space-y-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ArrowUpCircle className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span className="font-bold text-emerald-200 truncate">
+                  Update APK v{availableUpdate.latestVersion} tersedia!
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {bannerNeedsPerm ? (
+                  <button
+                    onClick={async () => {
+                      const res = await retryInstallCachedApk();
+                      if (res.status === 'installing') setBannerNeedsPerm(false);
+                    }}
+                    className="rounded-lg bg-amber-500 px-2.5 py-1 font-extrabold text-slate-950"
+                  >
+                    Pasang Sekarang
+                  </button>
+                ) : (
+                  <button
+                    disabled={Boolean(bannerDlProg)}
+                    onClick={async () => {
+                      setBannerErr('');
+                      setBannerDlProg({ percent: 0, downloadedMb: 0, totalMb: 0 });
+                      const res = await startInAppUpdate(availableUpdate.downloadUrl, setBannerDlProg);
+                      setBannerDlProg(null);
+                      if (res.status === 'needs_permission') {
+                        setBannerNeedsPerm(true);
+                      } else if (res.status === 'error') {
+                        setBannerErr(res.error || 'Gagal mengunduh update');
+                      }
+                    }}
+                    className="rounded-lg bg-emerald-600 px-2.5 py-1 font-extrabold text-white disabled:opacity-60"
+                  >
+                    {bannerDlProg ? `${bannerDlProg.percent}%` : 'Update'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setAvailableUpdate(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-white"
+                  aria-label="Tutup banner update"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <a
-                href={availableUpdate.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg bg-emerald-600 px-2.5 py-1 font-extrabold text-white"
-              >
-                Update
-              </a>
-              <button
-                onClick={() => setAvailableUpdate(null)}
-                className="rounded-lg p-1 text-slate-400 hover:text-white"
-                aria-label="Tutup banner update"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            {bannerDlProg && (
+              <div className="space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all"
+                    style={{ width: `${bannerDlProg.percent}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-emerald-200">
+                  Mengunduh di aplikasi... {bannerDlProg.percent}% ({bannerDlProg.downloadedMb}
+                  {bannerDlProg.totalMb ? ` / ${bannerDlProg.totalMb}` : ''} MB)
+                </p>
+              </div>
+            )}
+            {bannerNeedsPerm && (
+              <p className="text-[10px] text-amber-300">
+                Aktifkan "Izinkan dari sumber ini" untuk Study Pro, lalu ketuk Pasang Sekarang.
+              </p>
+            )}
+            {bannerErr && <p className="text-[10px] text-rose-300">{bannerErr}</p>}
           </div>
         )}
 
