@@ -5,6 +5,7 @@ import { ArrowUpCircle, Flame, Lock, Moon, Settings, Smartphone, Sun, WifiOff, X
 import { BottomNav, type TabId } from './components/BottomNav';
 import { QuizSession } from './components/QuizSession';
 import { loadAllQuestions, loadManifest, loadSpecialtyQuestions } from './lib/dataLoader';
+import { ENTRANCE_QUESTIONS_PER_SPECIALTY } from './lib/motivation';
 import {
   getPwaState,
   isNativeApp,
@@ -447,21 +448,24 @@ export default function App() {
       const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
       const byId = new Map(allQ.map((q) => [q.id, q]));
       const existing = progress.entranceTest;
-
-      if (
+      const expectedTotal = manifest.specialties.length * ENTRANCE_QUESTIONS_PER_SPECIALTY;
+      const existingAnsweredCount = Object.keys(existing?.answers || {}).length;
+      const shouldResume =
         !forceNew &&
         existing &&
         !existing.completedAt &&
         Array.isArray(existing.questionIds) &&
-        existing.questionIds.length > 0
-      ) {
+        existing.questionIds.length > 0 &&
+        (existingAnsweredCount > 0 || existing.questionIds.length === expectedTotal);
+
+      if (shouldResume && existing) {
         const resumed = existing.questionIds
           .map((id) => byId.get(id))
           .filter((q): q is NonNullable<typeof q> => Boolean(q));
         if (resumed.length > 0) {
           setSession({
             title: 'Entrance Test Baseline',
-            subtitle: '10 Soal × 18 Bidang',
+            subtitle: `${ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal × ${manifest.specialties.length} Bidang`,
             questions: resumed,
             mode: 'cbt',
             activeRecallFirst: false,
@@ -475,8 +479,11 @@ export default function App() {
       const picked: typeof allQ = [];
       for (const s of manifest.specialties) {
         const verified = allQ.filter((q) => q.specialty === s.id && q.answerVerified);
-        const pool = verified.length >= 10 ? verified : allQ.filter((q) => q.specialty === s.id);
-        picked.push(...shuffleArray(pool).slice(0, 10));
+        const pool =
+          verified.length >= ENTRANCE_QUESTIONS_PER_SPECIALTY
+            ? verified
+            : allQ.filter((q) => q.specialty === s.id);
+        picked.push(...shuffleArray(pool).slice(0, ENTRANCE_QUESTIONS_PER_SPECIALTY));
       }
       const shuffled = shuffleArray(picked);
       const qIds = shuffled.map((q) => q.id);
@@ -492,7 +499,7 @@ export default function App() {
 
       setSession({
         title: 'Entrance Test Baseline',
-        subtitle: '10 Soal × 18 Bidang',
+        subtitle: `${ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal × ${manifest.specialties.length} Bidang`,
         questions: shuffled,
         mode: 'cbt',
         activeRecallFirst: false,

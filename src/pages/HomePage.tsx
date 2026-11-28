@@ -9,7 +9,7 @@ import {
   Target,
   Zap,
 } from 'lucide-react';
-import { computeOverallReadiness, getMotivationalPush, getRankInfo } from '../lib/motivation';
+import { computeOverallReadiness, ENTRANCE_QUESTIONS_PER_SPECIALTY, getMotivationalPush, getRankInfo } from '../lib/motivation';
 import { buildAdaptiveSchedule } from '../lib/scheduler';
 import { computeSpecialtyStats, getDueIds } from '../lib/srs';
 import { daysBetweenISO, todayISO } from '../lib/storage';
@@ -133,10 +133,10 @@ export function HomePage({
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-extrabold">
-                Entrance Test Baseline (10 Soal × {readiness.totalSpecialties} Bidang)
+                Entrance Test Baseline ({ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal × {readiness.totalSpecialties} Bidang)
               </h3>
               <p className={`mt-1 text-xs leading-relaxed ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
-                Kerjakan 10 soal acak dari masing-masing bidang untuk mengukur angka kesiapan awalmu. Bisa dijeda &amp; dilanjutkan kapan saja — setelah selesai, % kesiapan otomatis adaptif mengikuti latihanmu.
+                Kerjakan {ENTRANCE_QUESTIONS_PER_SPECIALTY} soal acak dari masing-masing bidang untuk mengukur angka kesiapan awalmu. Bisa dijeda &amp; dilanjutkan kapan saja — setelah selesai, % kesiapan otomatis adaptif mengikuti latihanmu.
               </p>
             </div>
           </div>
@@ -164,7 +164,7 @@ export function HomePage({
           >
             {readiness.entranceAnswered > 0
               ? `Lanjutkan Entrance Test (${readiness.entranceAnswered}/${readiness.entranceTotal})`
-              : `Mulai Entrance Test Baseline (${readiness.totalSpecialties * 10} Soal)`}
+              : `Mulai Entrance Test Baseline (${readiness.totalSpecialties * ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal)`}
             <ArrowRight className="h-4 w-4" />
           </button>
         </section>

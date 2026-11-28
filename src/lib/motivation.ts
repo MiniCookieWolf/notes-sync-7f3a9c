@@ -95,6 +95,7 @@ export function getMotivationalPush(
 }
 
 export const MIN_QUESTIONS_PER_SPECIALTY = 10;
+export const ENTRANCE_QUESTIONS_PER_SPECIALTY = 5;
 
 export function computeOverallReadiness(
   progress: UserProgress,
@@ -120,7 +121,7 @@ export function computeOverallReadiness(
   const entranceAnswered = Object.keys(progress.entranceTest?.answers || {}).length;
   const entranceTotal =
     progress.entranceTest?.questionIds?.length ||
-    totalSpecialties * MIN_QUESTIONS_PER_SPECIALTY;
+    totalSpecialties * ENTRANCE_QUESTIONS_PER_SPECIALTY;
   const baselineAccuracy =
     typeof progress.entranceTest?.baselineAccuracy === 'number'
       ? progress.entranceTest.baselineAccuracy

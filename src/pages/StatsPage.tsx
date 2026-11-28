@@ -6,7 +6,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { prefetchAllOfflineData } from '../lib/dataLoader';
-import { computeOverallReadiness } from '../lib/motivation';
+import { computeOverallReadiness, ENTRANCE_QUESTIONS_PER_SPECIALTY } from '../lib/motivation';
 import { computeSpecialtyStats } from '../lib/srs';
 import type { ManifestData, UserProgress } from '../lib/types';
 
@@ -145,7 +145,7 @@ export function StatsPage({
         ) : (
           <div className="mt-2.5 space-y-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3">
             <p className="text-[11px] text-amber-300 leading-relaxed">
-              Angka kesiapan baru dikalkulasi setelah mengerjakan Entrance Test (10 soal acak/bidang) atau minimal {readiness.minPerSpecialty} soal di masing-masing bidang ({readiness.readySpecialtiesCount}/{readiness.totalSpecialties} bidang terpenuhi).
+              Angka kesiapan baru dikalkulasi setelah mengerjakan Entrance Test ({ENTRANCE_QUESTIONS_PER_SPECIALTY} soal acak/bidang) atau minimal {readiness.minPerSpecialty} soal di masing-masing bidang ({readiness.readySpecialtiesCount}/{readiness.totalSpecialties} bidang terpenuhi).
             </p>
             <button
               type="button"
@@ -155,7 +155,7 @@ export function StatsPage({
               <ClipboardCheck className="h-4 w-4" />
               {readiness.entranceAnswered > 0
                 ? `Lanjutkan Entrance Test (${readiness.entranceAnswered}/${readiness.entranceTotal})`
-                : `Mulai Entrance Test Baseline (10 Soal/Bidang)`}
+                : `Mulai Entrance Test Baseline (${ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal/Bidang)`}
             </button>
           </div>
         )}
@@ -186,7 +186,7 @@ export function StatsPage({
                 <div className="flex justify-between text-xs gap-2">
                   <span className="font-bold">{s.shortName}</span>
                   <span className="text-slate-400 text-[11px] text-right">
-                    {solved >= readiness.minPerSpecialty
+                    {(readiness.isReadinessReady ? solved > 0 : solved >= readiness.minPerSpecialty)
                       ? `✓ ${solved}/${s.questionCount} • Adaptif ${adaptivePct}%${
                           typeof basePct === 'number' ? ` (Base ${basePct}%)` : ''
                         }`

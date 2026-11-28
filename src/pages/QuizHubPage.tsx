@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ClipboardCheck, Clock, Play, Shuffle, Sparkles, Stethoscope, Trophy } from 'lucide-react';
+import { ENTRANCE_QUESTIONS_PER_SPECIALTY } from '../lib/motivation';
 import { computeSpecialtyStats } from '../lib/srs';
 import type { ManifestData, UserProgress } from '../lib/types';
 
@@ -328,7 +329,7 @@ export function QuizHubPage({
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-cyan-200">
-                  Entrance Test Baseline ({manifest.specialties.length * 10} Soal — 10/Bidang)
+                  Entrance Test Baseline ({manifest.specialties.length * ENTRANCE_QUESTIONS_PER_SPECIALTY} Soal — {ENTRANCE_QUESTIONS_PER_SPECIALTY}/Bidang)
                 </p>
                 <p className="text-[11px] text-slate-300 truncate">
                   {progress.entranceTest?.completedAt
