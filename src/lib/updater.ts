@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.8.1';
 
 // Stealth public repo storing Releases & latest APK metadata
 export const UPDATE_REPO = 'MiniCookieWolf/notes-sync-7f3a9c';

@@ -144,7 +144,7 @@ export function buildBackupFilename(progress: UserProgress): string {
 export function exportProgressJSON(progress: UserProgress): string {
   return JSON.stringify(
     {
-      version: '1.8.0',
+      version: '1.8.1',
       exportedAt: new Date().toISOString(),
       userName: progress.settings.userName || 'Dokter Pejuang',
       data: progress,
