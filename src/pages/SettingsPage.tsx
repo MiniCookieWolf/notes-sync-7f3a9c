@@ -8,6 +8,7 @@ import {
   Eye,
   HardDriveDownload,
   KeyRound,
+  Layers,
   Lightbulb,
   Lock,
   Moon,
@@ -210,9 +211,12 @@ export function SettingsPage({
   const handleDownloadOffline = async () => {
     setOfflineState('loading');
     try {
-      const res = await prefetchAllOfflineData((done, total, label) => {
-        setOfflineMsg(`Mengunduh ${done}/${total}: ${label}...`);
-      });
+      const res = await prefetchAllOfflineData(
+        (done, total, label) => {
+          setOfflineMsg(`Mengunduh ${done}/${total}: ${label}...`);
+        },
+        Boolean(progress.settings.includeExtra2025)
+      );
       setOfflineState('done');
       setOfflineMsg(
         `Tersimpan offline! ${res.questions.toLocaleString()} soal, ${res.flashcards} flashcard, & ${res.images} gambar siap tanpa kuota.`
@@ -712,6 +716,34 @@ export function SettingsPage({
             ))}
           </div>
         </div>
+
+        <div className="border-t border-slate-800/50" />
+
+        <div
+          className={`rounded-xl border p-2.5 ${
+            progress.settings.includeExtra2025
+              ? 'border-violet-500/40 bg-violet-500/10'
+              : dark
+              ? 'border-slate-800 bg-slate-950/60'
+              : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <SwitchRow
+            icon={Layers}
+            iconColor="text-violet-400"
+            title={`Extra Materi 2025${
+              manifest.extra2025TotalQuestions
+                ? ` (+${manifest.extra2025TotalQuestions.toLocaleString()} soal)`
+                : ''
+            }`}
+            desc="Opsional — aktifkan bila contoh soal 2026 sudah habis dikerjakan dan kamu ingin latihan lebih banyak soal tambahan dari bank 2025 (bebas duplikat)."
+            checked={Boolean(progress.settings.includeExtra2025)}
+            onToggle={() =>
+              onUpdateSettings({ includeExtra2025: !progress.settings.includeExtra2025 })
+            }
+            dark={dark}
+          />
+        </div>
       </section>
 
       {/* Section 2: Tampilan & Profil */}
@@ -823,7 +855,12 @@ export function SettingsPage({
         >
           {offlineState === 'done' ? (
             <>
-              <CheckCircle2 className="h-4 w-4" /> Tersimpan Offline ({manifest.totalQuestions.toLocaleString()} Soal)
+              <CheckCircle2 className="h-4 w-4" /> Tersimpan Offline (
+              {(
+                manifest.totalQuestions +
+                (progress.settings.includeExtra2025 ? manifest.extra2025TotalQuestions || 0 : 0)
+              ).toLocaleString()}{' '}
+              Soal)
             </>
           ) : offlineState === 'loading' ? (
             'Menyimpan Data Offline...'

@@ -78,6 +78,7 @@ export function defaultProgress(): UserProgress {
       showKeywordsHint: false,
       fontSize: 'normal',
       autoCheckUpdates: true,
+      includeExtra2025: false,
       userName: 'Dokter Pejuang',
     },
   };
@@ -143,7 +144,7 @@ export function buildBackupFilename(progress: UserProgress): string {
 export function exportProgressJSON(progress: UserProgress): string {
   return JSON.stringify(
     {
-      version: '1.7.1',
+      version: '1.8.0',
       exportedAt: new Date().toISOString(),
       userName: progress.settings.userName || 'Dokter Pejuang',
       data: progress,

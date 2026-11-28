@@ -5,6 +5,7 @@ const BASE = import.meta.env.BASE_URL;
 let manifestCache: ManifestData | null = null;
 let videosCache: VideosIndexData | null = null;
 const questionsCache = new Map<string, Question[]>();
+const questions2025Cache = new Map<string, Question[]>();
 const flashcardsCache = new Map<string, Flashcard[]>();
 const topicsCache = new Map<string, Record<string, TopicDetail>>();
 
@@ -26,12 +27,30 @@ export async function loadVideosIndex(): Promise<VideosIndexData> {
   return videosCache;
 }
 
-export async function loadSpecialtyQuestions(specialty: string): Promise<Question[]> {
-  const existing = questionsCache.get(specialty);
+export async function loadSpecialtyQuestions2025(specialty: string): Promise<Question[]> {
+  const existing = questions2025Cache.get(specialty);
   if (existing) return existing;
-  const data = await fetchJSON<Question[]>(`${BASE}data/questions/${specialty}.json`);
-  questionsCache.set(specialty, data);
-  return data;
+  try {
+    const data = await fetchJSON<Question[]>(`${BASE}data/questions_2025/${specialty}.json`);
+    questions2025Cache.set(specialty, data);
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+export async function loadSpecialtyQuestions(
+  specialty: string,
+  includeExtra2025 = false
+): Promise<Question[]> {
+  let base = questionsCache.get(specialty);
+  if (!base) {
+    base = await fetchJSON<Question[]>(`${BASE}data/questions/${specialty}.json`);
+    questionsCache.set(specialty, base);
+  }
+  if (!includeExtra2025) return base;
+  const extra = await loadSpecialtyQuestions2025(specialty);
+  return extra.length > 0 ? [...base, ...extra] : base;
 }
 
 export async function loadSpecialtyFlashcards(specialty: string): Promise<Flashcard[]> {
@@ -56,8 +75,13 @@ export async function loadSpecialtyTopics(specialty: string): Promise<Record<str
   }
 }
 
-export async function loadAllQuestions(specialties: string[]): Promise<Question[]> {
-  const chunks = await Promise.all(specialties.map((s) => loadSpecialtyQuestions(s)));
+export async function loadAllQuestions(
+  specialties: string[],
+  includeExtra2025 = false
+): Promise<Question[]> {
+  const chunks = await Promise.all(
+    specialties.map((s) => loadSpecialtyQuestions(s, includeExtra2025))
+  );
   return chunks.flat();
 }
 
@@ -67,7 +91,8 @@ export async function loadAllFlashcards(specialties: string[]): Promise<Flashcar
 }
 
 export async function prefetchAllOfflineData(
-  onProgress?: (done: number, total: number, label: string) => void
+  onProgress?: (done: number, total: number, label: string) => void,
+  includeExtra2025 = false
 ): Promise<{ questions: number; flashcards: number; images: number }> {
   const manifest = await loadManifest();
   const specs = manifest.specialties.map((s) => s.id);
@@ -76,14 +101,14 @@ export async function prefetchAllOfflineData(
 
   await loadVideosIndex();
   done += 1;
-  onProgress?.(done, totalSteps, 'Indeks 138 Video & Timestamp');
+  onProgress?.(done, totalSteps, 'Indeks Video & Timestamp');
 
   let qCount = 0;
   let fcCount = 0;
   const imgUrls = new Set<string>();
 
   for (const s of specs) {
-    const qs = await loadSpecialtyQuestions(s);
+    const qs = await loadSpecialtyQuestions(s, includeExtra2025);
     qCount += qs.length;
     for (const q of qs) {
       if (q.image) imgUrls.add(`${BASE}${q.image.replace(/^\/+/, '')}`);

@@ -26,8 +26,16 @@ export function StatsPage({
   onStartSpecialtyWeak,
 }: StatsPageProps) {
   const dark = progress.settings.darkMode;
-  const readiness = computeOverallReadiness(progress, manifest.specialties);
-  const specStats = computeSpecialtyStats(manifest.specialties, progress);
+  const includeExtra2025 = Boolean(progress.settings.includeExtra2025);
+  const effectiveSpecialties = manifest.specialties.map((s) => ({
+    ...s,
+    questionCount: s.questionCount + (includeExtra2025 ? s.extra2025Count || 0 : 0),
+  }));
+  const effectiveTotalQuestions =
+    manifest.totalQuestions + (includeExtra2025 ? manifest.extra2025TotalQuestions || 0 : 0);
+
+  const readiness = computeOverallReadiness(progress, effectiveSpecialties);
+  const specStats = computeSpecialtyStats(effectiveSpecialties, progress);
 
   const [offlineState, setOfflineState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [offlineMsg, setOfflineMsg] = useState('');
@@ -37,7 +45,7 @@ export function StatsPage({
     try {
       const res = await prefetchAllOfflineData((done, total, label) => {
         setOfflineMsg(`Mengunduh ${done}/${total}: ${label}...`);
-      });
+      }, includeExtra2025);
       setOfflineState('done');
       setOfflineMsg(
         `Tersimpan offline di HP! ${res.questions.toLocaleString()} soal, ${res.flashcards} flashcard, & ${res.images} gambar klinis siap dibuka tanpa kuota.`
@@ -61,7 +69,7 @@ export function StatsPage({
           <div>
             <h3 className="text-sm font-extrabold">Simpan Semua Bank Soal Offline di HP</h3>
             <p className="mt-0.5 text-xs text-slate-400">
-              Sekali klik untuk menyimpan seluruh {manifest.totalQuestions.toLocaleString()} soal, pembahasan, & gambar klinis ke memori HP Android agar bisa dibuka kapan saja tanpa internet.
+              Sekali klik untuk menyimpan seluruh {effectiveTotalQuestions.toLocaleString()} soal, pembahasan, & gambar klinis ke memori HP Android agar bisa dibuka kapan saja tanpa internet.
             </p>
           </div>
         </div>
@@ -171,7 +179,7 @@ export function StatsPage({
           Progres &amp; Kesiapan Adaptif Per Bidang (Tap untuk Latihan)
         </h3>
         <div className="space-y-2">
-          {manifest.specialties.map((s) => {
+          {effectiveSpecialties.map((s) => {
             const st = specStats[s.id];
             const solved = st?.uniqueSolved || 0;
             const remaining = Math.max(0, readiness.minPerSpecialty - solved);

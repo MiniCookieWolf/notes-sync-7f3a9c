@@ -355,7 +355,10 @@ export default function App() {
     if (!manifest) return;
     setLoadingQuiz(true);
     try {
-      const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
+      const allQ = await loadAllQuestions(
+        manifest.specialties.map((s) => s.id),
+        Boolean(progress.settings.includeExtra2025)
+      );
       let pool = allQ.filter((q) => q.answerVerified);
       if (opts.filter === 'unseen') {
         pool = shuffleArray(pool.filter((q) => !progress.srs[q.id]));
@@ -390,9 +393,15 @@ export default function App() {
     if (!manifest) return;
     setLoadingQuiz(true);
     try {
-      const qs = await loadSpecialtyQuestions(opts.specialtyId);
+      const qs = await loadSpecialtyQuestions(
+        opts.specialtyId,
+        Boolean(progress.settings.includeExtra2025)
+      );
       let pool = qs;
-      if (opts.categoryFilter !== 'all') {
+      if (opts.categoryFilter === 'extra_2025') {
+        const filtered = qs.filter((q) => q.sourceYear === 2025);
+        if (filtered.length > 0) pool = filtered;
+      } else if (opts.categoryFilter !== 'all') {
         const filtered = qs.filter((q) => q.sourceCategory === opts.categoryFilter);
         if (filtered.length > 0) pool = filtered;
       }
@@ -427,7 +436,10 @@ export default function App() {
     }
     setLoadingQuiz(true);
     try {
-      const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
+      const allQ = await loadAllQuestions(
+        manifest.specialties.map((s) => s.id),
+        Boolean(progress.settings.includeExtra2025)
+      );
       const dueQs = shuffleArray(allQ.filter((q) => dueIds.has(q.id))).slice(0, 20);
       setSession({
         title: 'Review Spaced Repetition',
@@ -445,7 +457,10 @@ export default function App() {
     if (!manifest) return;
     setLoadingQuiz(true);
     try {
-      const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
+      const allQ = await loadAllQuestions(
+        manifest.specialties.map((s) => s.id),
+        false
+      );
       const byId = new Map(allQ.map((q) => [q.id, q]));
       const existing = progress.entranceTest;
       const expectedTotal = manifest.specialties.length * ENTRANCE_QUESTIONS_PER_SPECIALTY;
@@ -599,7 +614,10 @@ export default function App() {
     if (!manifest) return;
     setLoadingQuiz(true);
     try {
-      const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
+      const allQ = await loadAllQuestions(
+        manifest.specialties.map((s) => s.id),
+        Boolean(progress.settings.includeExtra2025)
+      );
       const verified = allQ.filter((q) => q.answerVerified);
       // Proportional blueprint sampling
       let picked: typeof verified = [];
@@ -626,7 +644,10 @@ export default function App() {
     if (!manifest) return;
     setLoadingQuiz(true);
     try {
-      const qs = await loadAllQuestions(specs.length ? specs : manifest.specialties.map((s) => s.id));
+      const qs = await loadAllQuestions(
+        specs.length ? specs : manifest.specialties.map((s) => s.id),
+        Boolean(progress.settings.includeExtra2025)
+      );
       const picked = pickSmartMixQuestions(qs, progress, manifest.specialties, count, true);
       setSession({
         title: 'Misi Jadwal Hari Ini',

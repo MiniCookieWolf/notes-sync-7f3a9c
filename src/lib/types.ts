@@ -31,6 +31,7 @@ export interface Question {
   specialty: string;
   sourceBatch: string;
   sourceCategory: string;
+  sourceYear?: number;
   sourceFile: string;
   sourcePath?: string;
   qNum?: number | null;
@@ -70,6 +71,7 @@ export interface SpecialtyMeta {
   weight: number;
   color: string;
   questionCount: number;
+  extra2025Count?: number;
   verifiedCount: number;
   timestampedCount: number;
   flashcardCount: number;
@@ -78,6 +80,7 @@ export interface SpecialtyMeta {
 export interface ManifestData {
   generatedAt: string;
   totalQuestions: number;
+  extra2025TotalQuestions?: number;
   verifiedQuestions: number;
   timestampedQuestions: number;
   exactTimestampQuestions: number;
@@ -174,6 +177,7 @@ export interface AppSettings {
   showKeywordsHint: boolean;
   fontSize: 'normal' | 'large';
   autoCheckUpdates: boolean;
+  includeExtra2025: boolean;
   userName: string;
 }
 

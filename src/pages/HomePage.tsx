@@ -39,19 +39,29 @@ export function HomePage({
   onOpenTab,
 }: HomePageProps) {
   const dark = progress.settings.darkMode;
+  const includeExtra2025 = Boolean(progress.settings.includeExtra2025);
+  const effectiveSpecialties = manifest.specialties.map((s) => ({
+    ...s,
+    questionCount: s.questionCount + (includeExtra2025 ? s.extra2025Count || 0 : 0),
+  }));
+  const effectiveTotalQuestions =
+    manifest.totalQuestions + (includeExtra2025 ? manifest.extra2025TotalQuestions || 0 : 0);
+  const effectiveVerifiedQuestions =
+    manifest.verifiedQuestions + (includeExtra2025 ? manifest.extra2025TotalQuestions || 0 : 0);
+
   const today = todayISO();
   const daysLeft = Math.max(0, daysBetweenISO(today, progress.planConfig.examDate));
   const dueIds = getDueIds(progress.srs);
-  const specStats = computeSpecialtyStats(manifest.specialties, progress);
+  const specStats = computeSpecialtyStats(effectiveSpecialties, progress);
 
-  const weakestSpec = [...manifest.specialties].sort(
+  const weakestSpec = [...effectiveSpecialties].sort(
     (a, b) => (specStats[b.id]?.weakScore || 0) - (specStats[a.id]?.weakScore || 0)
   )[0];
 
-  const readiness = computeOverallReadiness(progress, manifest.specialties);
+  const readiness = computeOverallReadiness(progress, effectiveSpecialties);
   const rank = getRankInfo(progress.xp);
   const push = getMotivationalPush(progress, weakestSpec?.shortName || 'Bedah', dueIds.length);
-  const schedule = buildAdaptiveSchedule(manifest.specialties, progress);
+  const schedule = buildAdaptiveSchedule(effectiveSpecialties, progress);
   const todayMission = schedule.find((d) => d.date === today) || schedule[0];
   const todayLog = progress.dailyLogs[today];
   const answeredToday = todayLog?.answered || 0;
@@ -263,7 +273,7 @@ export function HomePage({
             <Shuffle className="h-5 w-5" />
           </div>
           <span className="mt-2.5 text-sm font-bold">Random Tiap Saat</span>
-          <span className="text-[11px] text-slate-400">Acak dari {manifest.verifiedQuestions.toLocaleString()} soal</span>
+          <span className="text-[11px] text-slate-400">Acak dari {effectiveVerifiedQuestions.toLocaleString()} soal</span>
         </button>
 
         <button
@@ -303,7 +313,7 @@ export function HomePage({
       >
         <div className="flex items-center justify-between">
           <span>
-            <strong className={dark ? 'text-slate-200' : 'text-slate-900'}>{manifest.totalQuestions.toLocaleString()}</strong> Bank Soal •{' '}
+            <strong className={dark ? 'text-slate-200' : 'text-slate-900'}>{effectiveTotalQuestions.toLocaleString()}</strong> Bank Soal •{' '}
             <strong className={dark ? 'text-slate-200' : 'text-slate-900'}>{manifest.totalFlashcards}</strong> Flashcard •{' '}
             <strong className={dark ? 'text-slate-200' : 'text-slate-900'}>{manifest.totalVideos}</strong> Video
           </span>

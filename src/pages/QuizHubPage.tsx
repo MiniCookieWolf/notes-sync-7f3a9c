@@ -25,6 +25,7 @@ interface QuizHubPageProps {
 
 const SOURCE_FILTERS = [
   { id: 'all', label: 'Semua Sumber' },
+  { id: 'fast_uc', label: 'Fast UC 2026' },
   { id: 'post_test', label: 'Post Test' },
   { id: 'pre_test', label: 'Pre Test' },
   { id: 'soal_pendalaman', label: 'Soal Pendalaman' },
@@ -55,8 +56,25 @@ export function QuizHubPage({
     setActiveRecall(progress.settings.activeRecallDefault);
   }, [progress.settings.activeRecallDefault]);
 
+  const includeExtra2025 = Boolean(progress.settings.includeExtra2025);
+  const availableFilters =
+    includeExtra2025 && (manifest.extra2025TotalQuestions || 0) > 0
+      ? [...SOURCE_FILTERS, { id: 'extra_2025', label: 'Extra Materi 2025' }]
+      : SOURCE_FILTERS;
+
+  useEffect(() => {
+    if (!includeExtra2025 && categoryFilter === 'extra_2025') {
+      setCategoryFilter('all');
+    }
+  }, [includeExtra2025, categoryFilter]);
+
+  const effectiveSpecialties = manifest.specialties.map((s) => ({
+    ...s,
+    questionCount: s.questionCount + (includeExtra2025 ? s.extra2025Count || 0 : 0),
+  }));
+
   const dark = progress.settings.darkMode;
-  const specStats = computeSpecialtyStats(manifest.specialties, progress);
+  const specStats = computeSpecialtyStats(effectiveSpecialties, progress);
 
   return (
     <div className="space-y-4 pb-6">
@@ -144,7 +162,7 @@ export function QuizHubPage({
                 dark ? 'border-slate-800 bg-slate-900 text-slate-200' : 'border-slate-200 bg-white text-slate-800'
               }`}
             >
-              {SOURCE_FILTERS.map((sf) => (
+              {availableFilters.map((sf) => (
                 <option key={sf.id} value={sf.id}>
                   {sf.label}
                 </option>
@@ -153,7 +171,7 @@ export function QuizHubPage({
           </div>
 
           <div className="grid grid-cols-1 gap-2.5">
-            {manifest.specialties.map((s) => {
+            {effectiveSpecialties.map((s) => {
               const st = specStats[s.id];
               return (
                 <div
