@@ -102,6 +102,7 @@ export function loadProgress(): UserProgress {
       bookmarks: parsed.bookmarks || [],
       notes: parsed.notes || {},
       dailyLogs: parsed.dailyLogs || {},
+      entranceTest: parsed.entranceTest,
     };
     // One-time v1.3.2 default update: ensure A-E options are visible by default
     if (!localStorage.getItem('ws_ar_default_off_v132')) {
@@ -142,7 +143,7 @@ export function buildBackupFilename(progress: UserProgress): string {
 export function exportProgressJSON(progress: UserProgress): string {
   return JSON.stringify(
     {
-      version: '1.6.0',
+      version: '1.7.0',
       exportedAt: new Date().toISOString(),
       userName: progress.settings.userName || 'Dokter Pejuang',
       data: progress,
@@ -187,6 +188,7 @@ export function parseBackupJSON(raw: string): {
       bookmarks: candidate.bookmarks || [],
       notes: candidate.notes || {},
       dailyLogs: candidate.dailyLogs || {},
+      entranceTest: candidate.entranceTest,
     };
     return {
       progress,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock, Play, Shuffle, Sparkles, Stethoscope, Trophy } from 'lucide-react';
+import { ClipboardCheck, Clock, Play, Shuffle, Sparkles, Stethoscope, Trophy } from 'lucide-react';
 import { computeSpecialtyStats } from '../lib/srs';
 import type { ManifestData, UserProgress } from '../lib/types';
 
@@ -19,6 +19,7 @@ interface QuizHubPageProps {
     activeRecall: boolean;
   }) => void;
   onStartCbt: (count: number) => void;
+  onStartEntranceTest: () => void;
 }
 
 const SOURCE_FILTERS = [
@@ -40,6 +41,7 @@ export function QuizHubPage({
   onStartRandom,
   onStartSpecialty,
   onStartCbt,
+  onStartEntranceTest,
 }: QuizHubPageProps) {
   const [subTab, setSubTab] = useState<'specialty' | 'random' | 'cbt'>('specialty');
   const [randomCount, setRandomCount] = useState(20);
@@ -310,10 +312,35 @@ export function QuizHubPage({
               <Trophy className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold">Simulasi CBT UKMPPD</h3>
-              <p className="text-xs text-slate-400">Timer 1 menit/soal + bobot resmi 18 bidang + evaluasi lulus ≥66%</p>
+              <h3 className="text-base font-extrabold">Simulasi CBT &amp; Entrance Test</h3>
+              <p className="text-xs text-slate-400">Tes diagnostik baseline 18 bidang + Try Out CBT berwaktu</p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={onStartEntranceTest}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-cyan-500/40 bg-cyan-500/15 p-3.5 text-left transition active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="rounded-xl bg-cyan-500/20 p-2 text-cyan-300 shrink-0">
+                <ClipboardCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-cyan-200">
+                  Entrance Test Baseline ({manifest.specialties.length * 10} Soal — 10/Bidang)
+                </p>
+                <p className="text-[11px] text-slate-300 truncate">
+                  {progress.entranceTest?.completedAt
+                    ? `✅ Selesai • Baseline ${progress.entranceTest.baselineAccuracy}% (Tap untuk ulangi)`
+                    : progress.entranceTest && Object.keys(progress.entranceTest.answers || {}).length > 0
+                    ? `Lanjutkan (${Object.keys(progress.entranceTest.answers).length}/${progress.entranceTest.questionIds.length} soal tersimpan)`
+                    : 'Tanpa timer • Ukur kesiapan awal lintas 18 bidang'}
+                </p>
+              </div>
+            </div>
+            <Play className="h-4 w-4 shrink-0 text-cyan-300" fill="currentColor" />
+          </button>
 
           <div className="grid grid-cols-2 gap-2.5">
             {[

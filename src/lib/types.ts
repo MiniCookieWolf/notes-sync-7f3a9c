@@ -177,6 +177,15 @@ export interface AppSettings {
   userName: string;
 }
 
+export interface EntranceTestState {
+  startedAt: string;
+  completedAt?: string;
+  questionIds: string[];
+  answers: Record<string, string>;
+  baselineAccuracy?: number;
+  baselineBySpecialty?: Record<string, number>;
+}
+
 export interface UserProgress {
   xp: number;
   streakDays: number;
@@ -190,6 +199,7 @@ export interface UserProgress {
   planConfig: StudyPlanConfig;
   scheduleOffsetDays: number;
   settings: AppSettings;
+  entranceTest?: EntranceTestState;
 }
 
 export interface QuizSessionConfig {
@@ -199,4 +209,6 @@ export interface QuizSessionConfig {
   mode: 'practice' | 'cbt' | 'review';
   activeRecallFirst: boolean;
   timeLimitSec?: number;
+  isEntranceTest?: boolean;
+  initialAnswers?: Record<string, string>;
 }

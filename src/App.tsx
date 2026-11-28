@@ -440,6 +440,154 @@ export default function App() {
     }
   };
 
+  const launchEntranceTest = async (forceNew = false) => {
+    if (!manifest) return;
+    setLoadingQuiz(true);
+    try {
+      const allQ = await loadAllQuestions(manifest.specialties.map((s) => s.id));
+      const byId = new Map(allQ.map((q) => [q.id, q]));
+      const existing = progress.entranceTest;
+
+      if (
+        !forceNew &&
+        existing &&
+        !existing.completedAt &&
+        Array.isArray(existing.questionIds) &&
+        existing.questionIds.length > 0
+      ) {
+        const resumed = existing.questionIds
+          .map((id) => byId.get(id))
+          .filter((q): q is NonNullable<typeof q> => Boolean(q));
+        if (resumed.length > 0) {
+          setSession({
+            title: 'Entrance Test Baseline',
+            subtitle: '10 Soal × 18 Bidang',
+            questions: resumed,
+            mode: 'cbt',
+            activeRecallFirst: false,
+            isEntranceTest: true,
+            initialAnswers: existing.answers || {},
+          });
+          return;
+        }
+      }
+
+      const picked: typeof allQ = [];
+      for (const s of manifest.specialties) {
+        const verified = allQ.filter((q) => q.specialty === s.id && q.answerVerified);
+        const pool = verified.length >= 10 ? verified : allQ.filter((q) => q.specialty === s.id);
+        picked.push(...shuffleArray(pool).slice(0, 10));
+      }
+      const shuffled = shuffleArray(picked);
+      const qIds = shuffled.map((q) => q.id);
+
+      setProgress((prev) => ({
+        ...prev,
+        entranceTest: {
+          startedAt: todayISO(),
+          questionIds: qIds,
+          answers: {},
+        },
+      }));
+
+      setSession({
+        title: 'Entrance Test Baseline',
+        subtitle: '10 Soal × 18 Bidang',
+        questions: shuffled,
+        mode: 'cbt',
+        activeRecallFirst: false,
+        isEntranceTest: true,
+        initialAnswers: {},
+      });
+    } finally {
+      setLoadingQuiz(false);
+    }
+  };
+
+  const handleEntranceAnswer = (questionId: string, letter: string) => {
+    setProgress((prev) => {
+      const cur = prev.entranceTest;
+      if (!cur || cur.completedAt) return prev;
+      return {
+        ...prev,
+        entranceTest: {
+          ...cur,
+          answers: { ...cur.answers, [questionId]: letter },
+        },
+      };
+    });
+  };
+
+  const handleCompleteEntranceTest = (payload: {
+    answers: Array<{ questionId: string; specialty: string; isCorrect: boolean }>;
+    baselineAccuracy: number;
+    baselineBySpecialty: Record<string, number>;
+  }) => {
+    const today = todayISO();
+    setProgress((prev) => {
+      const nextSrs = { ...prev.srs };
+      let correctCount = 0;
+      let xpGain = 0;
+
+      for (const item of payload.answers) {
+        if (item.isCorrect) correctCount += 1;
+        xpGain += item.isCorrect ? 15 : 6;
+        nextSrs[item.questionId] = updateSRSRecord(
+          nextSrs[item.questionId],
+          item.questionId,
+          item.specialty,
+          item.isCorrect ? 'good' : 'again',
+          item.isCorrect
+        );
+      }
+
+      const prevLog = prev.dailyLogs[today] || {
+        date: today,
+        answered: 0,
+        correct: 0,
+        flashcards: 0,
+        minutes: 0,
+        xp: 0,
+      };
+      const streak =
+        prev.lastStudyDate === today
+          ? Math.max(1, prev.streakDays)
+          : prev.lastStudyDate
+          ? prev.streakDays + 1
+          : 1;
+
+      const curEntrance = prev.entranceTest || {
+        startedAt: today,
+        questionIds: payload.answers.map((a) => a.questionId),
+        answers: {},
+      };
+
+      return {
+        ...prev,
+        xp: prev.xp + xpGain,
+        streakDays: streak,
+        lastStudyDate: today,
+        srs: nextSrs,
+        dailyLogs: {
+          ...prev.dailyLogs,
+          [today]: {
+            ...prevLog,
+            answered: prevLog.answered + payload.answers.length,
+            correct: prevLog.correct + correctCount,
+            minutes: prevLog.minutes + Math.max(5, Math.round(payload.answers.length * 0.5)),
+            xp: prevLog.xp + xpGain,
+          },
+        },
+        entranceTest: {
+          ...curEntrance,
+          completedAt: today,
+          baselineAccuracy: payload.baselineAccuracy,
+          baselineBySpecialty: payload.baselineBySpecialty,
+        },
+      };
+    });
+  };
+
   const launchCbt = async (count: number) => {
     if (!manifest) return;
     setLoadingQuiz(true);
@@ -580,6 +728,8 @@ export default function App() {
             notes: { ...p.notes, [id]: note },
           }))
         }
+        onEntranceAnswer={handleEntranceAnswer}
+        onCompleteEntranceTest={handleCompleteEntranceTest}
         registerBackHandler={registerModalBackHandler}
         onExit={() => setSession(null)}
       />
@@ -766,6 +916,7 @@ export default function App() {
                   })
                 }
                 onStartTodayMission={launchMission}
+                onStartEntranceTest={() => launchEntranceTest(false)}
                 onOpenTab={(t) => navigateTab(t)}
               />
             )}
@@ -783,6 +934,7 @@ export default function App() {
                 onStartRandom={launchRandomQuiz}
                 onStartSpecialty={launchSpecialtyQuiz}
                 onStartCbt={launchCbt}
+                onStartEntranceTest={() => launchEntranceTest(false)}
               />
             )}
 
@@ -813,6 +965,7 @@ export default function App() {
                 manifest={manifest}
                 progress={progress}
                 onOpenSettings={() => setShowSettings(true)}
+                onStartEntranceTest={() => launchEntranceTest(false)}
                 onStartSpecialtyWeak={(specId) =>
                   launchSpecialtyQuiz({
                     specialtyId: specId,

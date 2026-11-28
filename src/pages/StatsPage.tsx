@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   CheckCircle2,
+  ClipboardCheck,
   HardDriveDownload,
   Settings,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ interface StatsPageProps {
   manifest: ManifestData;
   progress: UserProgress;
   onOpenSettings: () => void;
+  onStartEntranceTest: () => void;
   onStartSpecialtyWeak: (specialtyId: string) => void;
 }
 
@@ -20,6 +22,7 @@ export function StatsPage({
   manifest,
   progress,
   onOpenSettings,
+  onStartEntranceTest,
   onStartSpecialtyWeak,
 }: StatsPageProps) {
   const dark = progress.settings.darkMode;
@@ -98,7 +101,7 @@ export function StatsPage({
             </p>
             <p className="text-[10px] text-slate-400">
               {readiness.isReadinessReady
-                ? 'Angka Kesiapan'
+                ? 'Kesiapan Adaptif'
                 : `Siap ${readiness.readySpecialtiesCount}/${readiness.totalSpecialties} bidang`}
             </p>
           </div>
@@ -111,10 +114,50 @@ export function StatsPage({
             <p className="text-[10px] text-slate-400">Cakupan Bank</p>
           </div>
         </div>
-        {!readiness.isReadinessReady && (
-          <p className="mt-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-[11px] text-amber-300 leading-relaxed">
-            Angka kesiapan baru dikalkulasi setelah mengerjakan minimal {readiness.minPerSpecialty} soal di masing-masing bidang ({readiness.readySpecialtiesCount}/{readiness.totalSpecialties} bidang terpenuhi). Tap bidang di bawah untuk melengkapi.
-          </p>
+        {readiness.isReadinessReady ? (
+          <div className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[11px]">
+            {readiness.baselineAccuracy !== null && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-300">
+                  Baseline Entrance Test: <strong>{readiness.baselineAccuracy}%</strong>
+                </span>
+                <span
+                  className={`rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
+                    (readiness.deltaFromBaseline || 0) > 0
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : (readiness.deltaFromBaseline || 0) < 0
+                      ? 'bg-rose-500/20 text-rose-300'
+                      : 'bg-slate-700/60 text-slate-300'
+                  }`}
+                >
+                  {(readiness.deltaFromBaseline || 0) > 0
+                    ? `+${readiness.deltaFromBaseline}% dr baseline`
+                    : (readiness.deltaFromBaseline || 0) < 0
+                    ? `${readiness.deltaFromBaseline}% dr baseline`
+                    : 'Sama dengan baseline'}
+                </span>
+              </div>
+            )}
+            <p className="text-emerald-200/85">
+              Angka kesiapan terus beradaptasi otomatis mengikuti hasil latihan &amp; review SRS-mu.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2.5 space-y-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3">
+            <p className="text-[11px] text-amber-300 leading-relaxed">
+              Angka kesiapan baru dikalkulasi setelah mengerjakan Entrance Test (10 soal acak/bidang) atau minimal {readiness.minPerSpecialty} soal di masing-masing bidang ({readiness.readySpecialtiesCount}/{readiness.totalSpecialties} bidang terpenuhi).
+            </p>
+            <button
+              type="button"
+              onClick={onStartEntranceTest}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2 text-xs font-extrabold text-white shadow"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              {readiness.entranceAnswered > 0
+                ? `Lanjutkan Entrance Test (${readiness.entranceAnswered}/${readiness.entranceTotal})`
+                : `Mulai Entrance Test Baseline (10 Soal/Bidang)`}
+            </button>
+          </div>
         )}
       </section>
 
@@ -125,13 +168,15 @@ export function StatsPage({
         }`}
       >
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-          Progres & Akurasi Per Bidang (Tap untuk Latihan)
+          Progres &amp; Kesiapan Adaptif Per Bidang (Tap untuk Latihan)
         </h3>
         <div className="space-y-2">
           {manifest.specialties.map((s) => {
             const st = specStats[s.id];
             const solved = st?.uniqueSolved || 0;
             const remaining = Math.max(0, readiness.minPerSpecialty - solved);
+            const adaptivePct = readiness.adaptiveBySpecialty[s.id] ?? st?.accuracy ?? 0;
+            const basePct = progress.entranceTest?.baselineBySpecialty?.[s.id];
             return (
               <div
                 key={s.id}
@@ -140,9 +185,11 @@ export function StatsPage({
               >
                 <div className="flex justify-between text-xs gap-2">
                   <span className="font-bold">{s.shortName}</span>
-                  <span className="text-slate-400 text-[11px]">
+                  <span className="text-slate-400 text-[11px] text-right">
                     {solved >= readiness.minPerSpecialty
-                      ? `✓ ${solved}/${s.questionCount} (${st.coveragePct}%) • Akurasi ${st.accuracy}%`
+                      ? `✓ ${solved}/${s.questionCount} • Adaptif ${adaptivePct}%${
+                          typeof basePct === 'number' ? ` (Base ${basePct}%)` : ''
+                        }`
                       : solved > 0
                       ? `${solved}/${s.questionCount} • kurang ${remaining} soal lagi`
                       : `0/${s.questionCount} • butuh ${readiness.minPerSpecialty} soal`}

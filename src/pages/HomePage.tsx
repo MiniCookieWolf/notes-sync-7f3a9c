@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Brain,
   CalendarCheck,
+  ClipboardCheck,
   Flame,
   Shuffle,
   Sparkles,
@@ -22,6 +23,7 @@ interface HomePageProps {
   onStartDueSrs: () => void;
   onStartWeakest: (specialtyId: string) => void;
   onStartTodayMission: (specialties: string[], targetQ: number) => void;
+  onStartEntranceTest: () => void;
   onOpenTab: (tab: 'quiz' | 'planner' | 'library' | 'stats') => void;
 }
 
@@ -33,6 +35,7 @@ export function HomePage({
   onStartDueSrs,
   onStartWeakest,
   onStartTodayMission,
+  onStartEntranceTest,
   onOpenTab,
 }: HomePageProps) {
   const dark = progress.settings.darkMode;
@@ -75,19 +78,23 @@ export function HomePage({
           <div className="text-right">
             <button
               type="button"
-              onClick={() => onOpenTab('stats')}
+              onClick={() => (readiness.isReadinessReady ? onOpenTab('stats') : onStartEntranceTest())}
               className="inline-flex flex-col items-center rounded-2xl bg-black/25 px-3.5 py-2 backdrop-blur text-center transition hover:bg-black/35 active:scale-[0.98]"
             >
               <span className="text-[10px] uppercase tracking-wider text-emerald-200">Kesiapan</span>
               <span className="text-2xl font-black">
                 {readiness.isReadinessReady
                   ? `${readiness.weightedAccuracy}%`
-                  : `${readiness.readySpecialtiesCount}/${readiness.totalSpecialties}`}
+                  : readiness.entranceAnswered > 0
+                  ? `${readiness.entranceAnswered}/${readiness.entranceTotal}`
+                  : 'Baseline'}
               </span>
               <span className="text-[10px] text-emerald-200/80">
                 {readiness.isReadinessReady
-                  ? 'Lulus ≥66%'
-                  : `Min. ${readiness.minPerSpecialty} soal/bidang`}
+                  ? readiness.deltaFromBaseline !== null && readiness.deltaFromBaseline !== 0
+                    ? `${readiness.deltaFromBaseline > 0 ? '+' : ''}${readiness.deltaFromBaseline}% dr baseline`
+                    : 'Lulus ≥66%'
+                  : 'Entrance Test'}
               </span>
             </button>
           </div>
@@ -112,6 +119,56 @@ export function HomePage({
           </div>
         </div>
       </section>
+
+      {/* Entrance Test Baseline CTA Card (shown before readiness is unlocked) */}
+      {!readiness.isReadinessReady && (
+        <section
+          className={`rounded-2xl border p-4 space-y-2.5 ${
+            dark ? 'border-cyan-500/35 bg-cyan-500/10' : 'border-cyan-200 bg-cyan-50'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-400">
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-extrabold">
+                Entrance Test Baseline (10 Soal × {readiness.totalSpecialties} Bidang)
+              </h3>
+              <p className={`mt-1 text-xs leading-relaxed ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Kerjakan 10 soal acak dari masing-masing bidang untuk mengukur angka kesiapan awalmu. Bisa dijeda &amp; dilanjutkan kapan saja — setelah selesai, % kesiapan otomatis adaptif mengikuti latihanmu.
+              </p>
+            </div>
+          </div>
+
+          {readiness.entranceAnswered > 0 && (
+            <div className="space-y-1">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-cyan-400 transition-all"
+                  style={{
+                    width: `${Math.min(100, Math.round((readiness.entranceAnswered / Math.max(1, readiness.entranceTotal)) * 100))}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] font-semibold text-cyan-300">
+                Progres tersimpan: {readiness.entranceAnswered}/{readiness.entranceTotal} soal dijawab
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onStartEntranceTest}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-2.5 text-xs font-extrabold text-white shadow active:scale-[0.99]"
+          >
+            {readiness.entranceAnswered > 0
+              ? `Lanjutkan Entrance Test (${readiness.entranceAnswered}/${readiness.entranceTotal})`
+              : `Mulai Entrance Test Baseline (${readiness.totalSpecialties * 10} Soal)`}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </section>
+      )}
 
       {/* Motivational Push Coach Card */}
       <section

@@ -107,9 +107,25 @@ export function computeOverallReadiness(
   totalSpecialties: number;
   minPerSpecialty: number;
   isReadinessReady: boolean;
+  baselineAccuracy: number | null;
+  deltaFromBaseline: number | null;
+  entranceAnswered: number;
+  entranceTotal: number;
+  entranceCompleted: boolean;
+  adaptiveBySpecialty: Record<string, number>;
 } {
   const srsValues = Object.values(progress.srs);
   const totalSpecialties = specialties.length;
+  const entranceCompleted = Boolean(progress.entranceTest?.completedAt);
+  const entranceAnswered = Object.keys(progress.entranceTest?.answers || {}).length;
+  const entranceTotal =
+    progress.entranceTest?.questionIds?.length ||
+    totalSpecialties * MIN_QUESTIONS_PER_SPECIALTY;
+  const baselineAccuracy =
+    typeof progress.entranceTest?.baselineAccuracy === 'number'
+      ? progress.entranceTest.baselineAccuracy
+      : null;
+
   if (srsValues.length === 0) {
     return {
       weightedAccuracy: 0,
@@ -119,12 +135,19 @@ export function computeOverallReadiness(
       totalSpecialties,
       minPerSpecialty: MIN_QUESTIONS_PER_SPECIALTY,
       isReadinessReady: false,
+      baselineAccuracy,
+      deltaFromBaseline: null,
+      entranceAnswered,
+      entranceTotal,
+      entranceCompleted,
+      adaptiveBySpecialty: {},
     };
   }
 
   let totalWeight = 0;
   let weightedSum = 0;
   let readySpecialtiesCount = 0;
+  const adaptiveBySpecialty: Record<string, number> = {};
   const totalQuestionsAll = specialties.reduce((acc, s) => acc + s.verifiedCount, 0);
 
   for (const s of specialties) {
@@ -133,20 +156,35 @@ export function computeOverallReadiness(
       readySpecialtiesCount += 1;
     }
     if (items.length === 0) continue;
-    const att = items.reduce((a, b) => a + b.attempts, 0);
-    const cor = items.reduce((a, b) => a + b.correctCount, 0);
-    const acc = att > 0 ? (cor / att) * 100 : 0;
-    weightedSum += acc * s.weight;
+
+    // Adaptive mastery score: blends latest SRS recall (65%) + historical accuracy (35%).
+    // On first attempt (e.g., right after Entrance Test), recentRate === histRate, so it
+    // equals the exact baseline %, then adapts smoothly as more practice/SRS reviews occur.
+    let scoreSum = 0;
+    for (const r of items) {
+      const histRate = r.attempts > 0 ? r.correctCount / r.attempts : 0;
+      const recentRate = r.lastCorrect ? 1 : 0;
+      scoreSum += 0.65 * recentRate + 0.35 * histRate;
+    }
+    const specAdaptive = Math.round((scoreSum / items.length) * 100);
+    adaptiveBySpecialty[s.id] = specAdaptive;
+    weightedSum += specAdaptive * s.weight;
     totalWeight += s.weight;
   }
 
-  const isReadinessReady = totalSpecialties > 0 && readySpecialtiesCount === totalSpecialties;
+  const isReadinessReady =
+    entranceCompleted || (totalSpecialties > 0 && readySpecialtiesCount === totalSpecialties);
   const weightedAccuracy =
     isReadinessReady && totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+  const deltaFromBaseline =
+    isReadinessReady && baselineAccuracy !== null
+      ? weightedAccuracy - baselineAccuracy
+      : null;
   const coveragePct =
     totalQuestionsAll > 0
       ? Math.min(100, Math.round((srsValues.length / totalQuestionsAll) * 100))
       : 0;
+
   return {
     weightedAccuracy,
     attemptedTotal: srsValues.length,
@@ -155,5 +193,11 @@ export function computeOverallReadiness(
     totalSpecialties,
     minPerSpecialty: MIN_QUESTIONS_PER_SPECIALTY,
     isReadinessReady,
+    baselineAccuracy,
+    deltaFromBaseline,
+    entranceAnswered,
+    entranceTotal,
+    entranceCompleted,
+    adaptiveBySpecialty,
   };
 }

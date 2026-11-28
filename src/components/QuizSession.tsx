@@ -40,6 +40,12 @@ interface QuizSessionProps {
   ) => void;
   onToggleBookmark: (questionId: string) => void;
   onSaveNote: (questionId: string, note: string) => void;
+  onEntranceAnswer?: (questionId: string, letter: string) => void;
+  onCompleteEntranceTest?: (payload: {
+    answers: Array<{ questionId: string; specialty: string; isCorrect: boolean }>;
+    baselineAccuracy: number;
+    baselineBySpecialty: Record<string, number>;
+  }) => void;
   registerBackHandler?: (fn: (() => boolean) | null) => void;
   onExit: (summary?: { answered: number; correct: number; bySpec: Record<string, { total: number; correct: number }> }) => void;
 }
@@ -52,11 +58,27 @@ export function QuizSession({
   onAdjustSrsRating,
   onToggleBookmark,
   onSaveNote,
+  onEntranceAnswer,
+  onCompleteEntranceTest,
   registerBackHandler,
   onExit,
 }: QuizSessionProps) {
-  const [idx, setIdx] = useState(0);
-  const [selectedByIdx, setSelectedByIdx] = useState<Record<number, string>>({});
+  const [selectedByIdx, setSelectedByIdx] = useState<Record<number, string>>(() => {
+    if (!config.isEntranceTest || !config.initialAnswers) return {};
+    const init: Record<number, string> = {};
+    config.questions.forEach((item, i) => {
+      const saved = config.initialAnswers?.[item.id];
+      if (saved) init[i] = saved;
+    });
+    return init;
+  });
+  const [idx, setIdx] = useState(() => {
+    if (!config.isEntranceTest || !config.initialAnswers) return 0;
+    const firstUnanswered = config.questions.findIndex(
+      (item) => !config.initialAnswers?.[item.id]
+    );
+    return firstUnanswered >= 0 ? firstUnanswered : 0;
+  });
   const [revealedByIdx, setRevealedByIdx] = useState<Record<number, boolean>>({});
   const [optionsUnlocked, setOptionsUnlocked] = useState(!config.activeRecallFirst);
   const [showKeywords, setShowKeywords] = useState(progress.settings.showKeywordsHint);
@@ -66,6 +88,7 @@ export function QuizSession({
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [ratedByIdx, setRatedByIdx] = useState<Record<number, SRSRating>>({});
   const [cbtSubmitted, setCbtSubmitted] = useState(false);
+  const [entranceNotice, setEntranceNotice] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(config.timeLimitSec || 0);
   const [questionStartMs, setQuestionStartMs] = useState(Date.now());
   const [topicsBySpec, setTopicsBySpec] = useState<Record<string, Record<string, TopicDetail>>>({});
@@ -74,6 +97,10 @@ export function QuizSession({
   const specMap = useMemo(() => Object.fromEntries(specialties.map((s) => [s.id, s])), [specialties]);
   const questions = config.questions;
   const q = questions[idx];
+  const answeredCount = useMemo(
+    () => questions.reduce((acc, _item, i) => acc + (selectedByIdx[i] ? 1 : 0), 0),
+    [questions, selectedByIdx]
+  );
 
   useEffect(() => {
     setOptionsUnlocked(!config.activeRecallFirst || Boolean(revealedByIdx[idx]) || cbtSubmitted);
@@ -148,6 +175,7 @@ export function QuizSession({
     if (config.mode === 'cbt' && cbtSubmitted) return;
 
     setSelectedByIdx((prev) => ({ ...prev, [idx]: letter }));
+    if (entranceNotice) setEntranceNotice('');
 
     if (config.mode !== 'cbt') {
       setRevealedByIdx((prev) => ({ ...prev, [idx]: true }));
@@ -159,6 +187,9 @@ export function QuizSession({
       setRatedByIdx((prev) => ({ ...prev, [idx]: autoRating }));
       onRecordAnswer(q.id, q.specialty, correct, autoRating, elapsed);
     } else {
+      if (config.isEntranceTest && onEntranceAnswer) {
+        onEntranceAnswer(q.id, letter);
+      }
       triggerHaptic(progress.settings.haptics, 10);
     }
   };
@@ -179,6 +210,50 @@ export function QuizSession({
   };
 
   const handleFinishCbt = () => {
+    if (config.isEntranceTest) {
+      const firstMissing = questions.findIndex((_item, i) => !selectedByIdx[i]);
+      if (firstMissing >= 0) {
+        const missingCount = questions.length - answeredCount;
+        setIdx(firstMissing);
+        setEntranceNotice(
+          `Masih ada ${missingCount} soal belum dijawab (melompat ke soal #${firstMissing + 1}). Lengkapi semua soal agar baseline tiap bidang akurat.`
+        );
+        return;
+      }
+
+      const perSpec: Record<string, { t: number; c: number }> = {};
+      const recordedAnswers: Array<{ questionId: string; specialty: string; isCorrect: boolean }> = [];
+      questions.forEach((item, i) => {
+        const sel = selectedByIdx[i];
+        const ok = item.answerVerified ? sel === item.answer : true;
+        recordedAnswers.push({ questionId: item.id, specialty: item.specialty, isCorrect: ok });
+        if (!perSpec[item.specialty]) perSpec[item.specialty] = { t: 0, c: 0 };
+        perSpec[item.specialty].t += 1;
+        if (ok) perSpec[item.specialty].c += 1;
+      });
+
+      const baselineBySpecialty: Record<string, number> = {};
+      let weightSum = 0;
+      let totalWeight = 0;
+      for (const [specId, st] of Object.entries(perSpec)) {
+        const pct = st.t > 0 ? Math.round((st.c / st.t) * 100) : 0;
+        baselineBySpecialty[specId] = pct;
+        const w = specMap[specId]?.weight || 1;
+        weightSum += pct * w;
+        totalWeight += w;
+      }
+      const baselineAccuracy = totalWeight > 0 ? Math.round(weightSum / totalWeight) : 0;
+
+      setEntranceNotice('');
+      setCbtSubmitted(true);
+      onCompleteEntranceTest?.({
+        answers: recordedAnswers,
+        baselineAccuracy,
+        baselineBySpecialty,
+      });
+      return;
+    }
+
     setCbtSubmitted(true);
     questions.forEach((item, i) => {
       const sel = selectedByIdx[i];
@@ -220,8 +295,17 @@ export function QuizSession({
       perSpec[item.specialty].t += 1;
       if (good) perSpec[item.specialty].c += 1;
     });
-    return { total, ok, pct: total ? Math.round((ok / total) * 100) : 0, perSpec };
-  }, [cbtSubmitted, questions, selectedByIdx]);
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const [specId, st] of Object.entries(perSpec)) {
+      const pctSpec = st.t > 0 ? Math.round((st.c / st.t) * 100) : 0;
+      const w = specMap[specId]?.weight || 1;
+      weightedSum += pctSpec * w;
+      totalWeight += w;
+    }
+    const weightedPct = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+    return { total, ok, pct: total ? Math.round((ok / total) * 100) : 0, weightedPct, perSpec };
+  }, [cbtSubmitted, questions, selectedByIdx, specMap]);
 
   return (
     <div className={`min-h-screen pb-28 ${dark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -239,7 +323,7 @@ export function QuizSession({
             }`}
           >
             <ArrowLeft className="h-4 w-4" />
-            Selesai
+            {config.isEntranceTest && !cbtSubmitted ? 'Jeda' : 'Selesai'}
           </button>
 
           <div className="flex flex-col items-center">
@@ -250,7 +334,7 @@ export function QuizSession({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {config.mode === 'cbt' && (
+            {config.mode === 'cbt' && Boolean(config.timeLimitSec) && (
               <span
                 className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-mono font-bold ${
                   secondsLeft < 300 ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/15 text-amber-400'
@@ -258,6 +342,11 @@ export function QuizSession({
               >
                 <Clock className="h-3.5 w-3.5" />
                 {fmtSec(secondsLeft)}
+              </span>
+            )}
+            {config.isEntranceTest && !cbtSubmitted && (
+              <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[11px] font-extrabold text-emerald-400">
+                {answeredCount}/{questions.length}
               </span>
             )}
             {combo >= 2 && config.mode !== 'cbt' && (
@@ -286,32 +375,68 @@ export function QuizSession({
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 pt-4">
-        {/* CBT End-of-Exam Summary Card */}
+        {entranceNotice && (
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/15 px-3.5 py-2.5 text-xs font-semibold text-amber-200">
+            {entranceNotice}
+          </div>
+        )}
+
+        {/* CBT / Entrance Test End-of-Exam Summary Card */}
         {cbtSubmitted && cbtScore && (
           <div
-            className={`rounded-2xl border p-4 ${
-              cbtScore.pct >= 66
+            className={`space-y-3 rounded-2xl border p-4 ${
+              (config.isEntranceTest ? cbtScore.weightedPct : cbtScore.pct) >= 66
                 ? 'border-emerald-500/40 bg-emerald-500/10'
                 : 'border-rose-500/40 bg-rose-500/10'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Hasil Simulasi CBT</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {config.isEntranceTest ? 'Hasil Baseline Entrance Test' : 'Hasil Simulasi CBT'}
+                </p>
                 <h3 className="text-2xl font-extrabold">
-                  {cbtScore.pct}% ({cbtScore.ok}/{cbtScore.total})
+                  {config.isEntranceTest ? cbtScore.weightedPct : cbtScore.pct}% ({cbtScore.ok}/{cbtScore.total})
                 </h3>
                 <p className="text-xs mt-0.5">
-                  {cbtScore.pct >= 66 ? '✅ LULUS Ambang Batas UKMPPD (≥66%)' : '⚠️ Belum mencapai 66% — Review pembahasan di bawah!'}
+                  {(config.isEntranceTest ? cbtScore.weightedPct : cbtScore.pct) >= 66
+                    ? '✅ LULUS Ambang Batas UKMPPD (≥66%)'
+                    : '⚠️ Masih di bawah 66% — Fokuskan latihan di bidang lemah!'}
                 </p>
               </div>
               <button
                 onClick={finishAndClose}
-                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
               >
                 Simpan & Keluar
               </button>
             </div>
+
+            {config.isEntranceTest && (
+              <div className="grid grid-cols-2 gap-1.5 border-t border-slate-800/60 pt-2.5">
+                {specialties
+                  .filter((s) => cbtScore.perSpec[s.id])
+                  .map((s) => {
+                    const st = cbtScore.perSpec[s.id];
+                    const p = st.t > 0 ? Math.round((st.c / st.t) * 100) : 0;
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between rounded-lg bg-slate-950/50 px-2.5 py-1.5 text-[11px]"
+                      >
+                        <span className="truncate font-semibold text-slate-300">{s.shortName}</span>
+                        <span
+                          className={`font-extrabold ${
+                            p >= 70 ? 'text-emerald-400' : p >= 50 ? 'text-amber-400' : 'text-rose-400'
+                          }`}
+                        >
+                          {p}% ({st.c}/{st.t})
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         )}
 
@@ -539,9 +664,15 @@ export function QuizSession({
           {config.mode === 'cbt' && !cbtSubmitted && (
             <button
               onClick={handleFinishCbt}
-              className="rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white"
+              className={`rounded-xl px-4 py-2.5 text-xs font-bold text-white ${
+                config.isEntranceTest && answeredCount === questions.length
+                  ? 'bg-emerald-600'
+                  : 'bg-amber-600'
+              }`}
             >
-              Kumpulkan TO
+              {config.isEntranceTest
+                ? `Selesai (${answeredCount}/${questions.length})`
+                : 'Kumpulkan TO'}
             </button>
           )}
 
